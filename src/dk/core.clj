@@ -15,13 +15,15 @@
   (:gen-class))
 (set! *warn-on-reflection* true)
 (native!)
-(def wide 62)
-(def high 62)
+(def wide 102)
+(def high 102)
 (def ^Long iw (- wide 2)) ;inner width
 (def ^Long ih (- high 2)) ;inner height
 
 (def wall 9999.0)
 (def floor 2000.0)
+(def dark 11111.0)
+
 (def ^Double GOAL 0.0)
 
 (def cleared-levels (atom {}))
@@ -35,7 +37,7 @@
 (defn make-player-label [] (label :text (str "AdventureMan. HP " (:hp @player)) :size [150 :by 16]))
 (defn make-welcome-message [] (label :text "Welcome to Ruins in... Something!":size [690 :by 16]))
 (defn make-other-message [script] (label :text script :size [690 :by 16]))
-(def monsters (atom (vec (for [i (range 1 16)] (atom {:pos 0 :show \M :hp 11 :vision 10 :dijkstra nil :ident (first (clojure.string/lower-case (Integer/toString i 16)))})))))
+(def monsters (atom (vec (for [i (range 1 60)] (atom {:pos 0 :show \M :hp 11 :vision 10 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
 (def ^TranslucenceWrapperFOV fov (TranslucenceWrapperFOV. ))
 
 (defn visible-monsters [] (filter (complement nil?) (for [mon @monsters] (if (> (aget (:seen @player) (mod (:pos @mon) wide) (quot (:pos @mon) wide)) 0)
@@ -59,6 +61,7 @@
 (defn messages-pane [] (scrollable
                         (vertical-panel :id :messages :items [(make-welcome-message)])
                         :vscroll :always :size [600 :by 70]))
+
 
 (defn ^doubles make-bones []
   (let [seed (rand-int (count horiz))
@@ -377,7 +380,7 @@
                dungeon (first dungeon-z)
                dngn-eh (init-dungeon dungeon)]
                       (loop [
-                          start (double-array (map #(if (< % wall) floor %) (replace {floor wall} (vec (dijkstra dungeon)))))
+                          start (double-array (map #(if (< % wall) floor %) (replace {floor dark} (vec (dijkstra dungeon)))))
                           worst (apply max (filter (partial > wall) (vec (dijkstra (hiphip/aclone start)))))
                           shown (last dungeon-z)]
                         (if (> worst (/ (+ wide high) 4))
@@ -388,7 +391,7 @@
                                                                     (alter-dungeon (dijkstra (init-dungeon start)) shown 10002.0 \> #(and (> % (/ (+ wide high) 4)) (< % floor)))))
                                                                 shown]
                                     (let [d0 (make-bones)
-                                          d2 (double-array (map #(if (< % wall) floor %) (replace {floor wall} (vec (dijkstra (first d0))))))
+                                          d2 (double-array (map #(if (< % wall) floor %) (replace {floor dark} (vec (dijkstra (first d0))))))
                                           d3 (init-dungeon d2)
                                           w2 (apply max (filter (partial > wall) (vec (dijkstra (hiphip/aclone d2)))))]
                                       (recur d3 w2 (harray/afill! char [[i x] ^chars (last d0)] (if (= (aget ^doubles d3 i) wall) \# x))))))))
@@ -685,7 +688,7 @@
             )))
 
 
-(defn -main
+(defn -main-old
 	[& args]
   (comment ;"Remove these semicolons to view a dungeon when you run"
   (invoke-later
@@ -759,6 +762,7 @@
   )
   (show-dungeon)
   )
+
 
 
 

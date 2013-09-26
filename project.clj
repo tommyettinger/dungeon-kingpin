@@ -16,7 +16,8 @@
                  ]
   :jvm-opts ^:replace []
 ;  :aot [dk.herringbone dk.weapons dk.combat dk.core]
-  :aot [dk.herringbone dk.DKGame dk.dkscreen dk.spritecore]
+  :aot [dk.herringbone dk.core dk.DKGame dk.dkscreen dk.spritecore]
   :main dk.spritecore
  )
+
 
