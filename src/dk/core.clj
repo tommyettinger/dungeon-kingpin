@@ -15,8 +15,8 @@
   (:gen-class))
 (set! *warn-on-reflection* true)
 (native!)
-(def wide 102)
-(def high 102)
+(def wide 40)
+(def high 40)
 (def ^Long iw (- wide 2)) ;inner width
 (def ^Long ih (- high 2)) ;inner height
 
@@ -33,11 +33,11 @@
                      (aset res1d i false))
                      res1d))
 
-(def player (atom {:pos 0 :show \@ :hp 99 :vision 10 :dijkstra nil :seen nil :full-seen (init-full-seen)}))
+(def player (atom {:pos 0 :show \@ :hp 99 :vision 12 :dijkstra nil :seen nil :full-seen (init-full-seen)}))
 (defn make-player-label [] (label :text (str "AdventureMan. HP " (:hp @player)) :size [150 :by 16]))
 (defn make-welcome-message [] (label :text "Welcome to Ruins in... Something!":size [690 :by 16]))
 (defn make-other-message [script] (label :text script :size [690 :by 16]))
-(def monsters (atom (vec (for [i (range 1 60)] (atom {:pos 0 :show \M :hp 11 :vision 10 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
+(def monsters (atom (vec (for [i (range 1 15)] (atom {:pos 0 :show \M :hp 9 :vision 10 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
 (def ^TranslucenceWrapperFOV fov (TranslucenceWrapperFOV. ))
 
 (defn visible-monsters [] (filter (complement nil?) (for [mon @monsters] (if (> (aget (:seen @player) (mod (:pos @mon) wide) (quot (:pos @mon) wide)) 0)
@@ -444,35 +444,32 @@
                               (config! (acquire [:#entities]) :items (concat [(make-player-label)] (visible-monsters)))
                               (-> f show! )))
 
-(defn damage-player [entity dd ^SGPane p]
+(defn damage-player [entity dd]
   (do (swap! entity assoc :hp (- (:hp @entity) (inc (rand-int 4))))
     (if (<= (:hp @player) 0)
       (do
-        (doseq [^KeyListener kl (vec (.getKeyListeners ^Component f))] (.removeKeyListener ^Component f kl))
-        (freshen dd p)
-        (show! (pack! (dialog
-            :content (str "GAME OVER.  You explored "
+        (println (str "GAME OVER.  You explored "
                           (count (filter true?
                                          (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @player))))))
                           " squares and reached floor " (inc @dlevel) "."
-                          )
-            :success-fn (fn [jop] (System/exit 0))))))
-      (freshen dd p))))
+                          )) (System/exit 0)))))
 
 (defn damage-monster
-  ([entity dd ^SGPane p]
+  ([entity dd monhash]
   (do (swap! entity assoc :hp (- (:hp @entity) (inc (rand-int 6))))
     (when (<= (:hp @entity) 0)
-      (reset! monsters (remove #(= % entity) @monsters)))
-     (freshen dd p)))
-  ([entity dd ^SGPane p dice die-size]
+      (reset! monsters (remove #(= % entity) @monsters))
+      (swap! monhash dissoc (:pos @entity)))
+     ))
+  ([entity dd monhash dice die-size]
   (do (swap! entity assoc :hp (- (:hp @entity) (reduce + (repeatedly dice #(inc (rand-int die-size))))))
     (when (<= (:hp @entity) 0)
-      (reset! monsters (remove #(= % entity) @monsters)))
-     (freshen dd p))))
+      (reset! monsters (remove #(= % entity) @monsters))
+      (swap! monhash dissoc (:pos @entity)))
+     )))
 
 
-(defn move-monster [mons dd ^SGPane p]
+(defn move-monster [mons dd monhash]
   (let [flee-map (let [first-d (hiphip/aclone ^doubles (:dungeon @dd))
                                                      d-eh (aset first-d (double (:pos @player)) GOAL)
                                                      new-d (hiphip/afill! [[idx x] (dijkstra first-d)]
@@ -485,6 +482,7 @@
                    (dijkstra new-d))]
                              (doseq [monster mons]
                                (let [monster-fov-new (run-fov monster dd)]
+                                 (swap! monhash dissoc (:pos @monster))
                                  (if (> (:hp @monster) 2)
                                    (when (> (aget monster-fov-new (mod (:pos @player) wide) (quot (:pos @player) wide)) 0)
                                      (do (swap! monster assoc :dijkstra
@@ -493,18 +491,6 @@
                                      (do (swap! monster assoc :dijkstra flee-map))))))
                              (doseq [mon mons]
                                 (let [oldpos (:pos @mon)]
-                                  (when (<= (aget (:seen @player) (mod (:pos @mon) wide) (quot (:pos @mon) wide)) 0)
-                                                          (. p placeCharacter (mod (:pos @mon) wide)
-                                                                              (quot (:pos @mon) wide)
-                                                                              (if (aget ^"[Z" (:full-seen @player) (:pos @mon))
-                                                                                (aget ^chars (:shown @dd) (:pos @mon))
-                                                                                \space)
-                                                                              SColor/BLACK
-                                                                              (if
-                                                                                (aget ^"[Z" (:full-seen @player) (:pos @mon))
-                                                                                  SColor/DARK_GRAY
-                                                                                  SColor/BLACK
-                                                                             )))
                                 (if (:dijkstra @mon) (let [orig-pos (:pos @mon)
                                                           adjacent (shuffle [
                                                                     (- orig-pos wide)
@@ -524,7 +510,7 @@
                                                                 (= (+ (:pos @player) wide) (:pos @mon))
                                                                 (= (- (:pos @player) 1   ) (:pos @mon))
                                                                 (= (+ (:pos @player) 1   ) (:pos @mon)))
-                                                        (damage-player player dd p)))
+                                                        (damage-player player dd)))
 
                                  ((rand-nth [
                                           #(when (and (apply distinct? (concat (map (fn [atm] (:pos @atm)) mons) [(- (:pos @%) wide) (:pos @player)]))
@@ -535,7 +521,8 @@
                                                       (= (aget ^doubles (:dungeon @dd) (- (:pos @%) 1)) floor)) (swap! % assoc :pos (- (:pos @%) 1)))
                                           #(when (and (apply distinct? (concat (map (fn [atm] (:pos @atm)) mons) [(+ (:pos @%) 1) (:pos @player)]))
                                                       (= (aget ^doubles (:dungeon @dd) (+ (:pos @%) 1)) floor)) (swap! % assoc :pos (+ (:pos @%) 1)))]
-                                            ) mon)))
+                                            ) mon))
+                                  (swap! monhash assoc (:pos @mon) mon))
 ;                               (when (= \# (aget ^chars (:shown @dd) (:pos @mon)))
 ;                                 (println "Monster intersecting with wall"))
                                  )
@@ -558,7 +545,7 @@
         (catch Exception iae (println "Please, don't press the keys so fast...")))))
 
 (defn ascend
-  [pc mons dd ^SGPane p]
+  [pc mons dd]
   (swap! cleared-levels assoc @dlevel (assoc @dd :full-seen (aclone ^"[Z" (:full-seen @pc))))
   (swap! dlevel dec)
   (let [
@@ -569,10 +556,10 @@
                                 monster-calc (doall (map #(do (init-dungeon dd1 %)(swap! % assoc :dijkstra nil)) @monsters))]
                             (harray/afill! boolean [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" (:full-seen (get @cleared-levels ^int @dlevel)) i))
                             (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
-                            (freshen dd p :full)))
+                            ))
 
 (defn descend
-  [pc mons dd ^SGPane p]
+  [pc mons dd]
   (swap! cleared-levels assoc @dlevel (assoc @dd :full-seen (aclone ^"[Z" (:full-seen @pc))))
   (swap! dlevel inc)
   (if (contains? @cleared-levels @dlevel)
@@ -584,7 +571,7 @@
       monster-calc (doall (map #(do (init-dungeon dd1 %) (swap! % assoc :dijkstra nil)) @mons))]
       (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" (:full-seen (get @cleared-levels ^int @dlevel)) i))
       (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
-      (freshen dd p :full))
+      )
     (let [
       dd0 (prepare-bones)
       dd1 (first dd0)
@@ -595,9 +582,9 @@
       blank-seen (init-full-seen)]
       (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" blank-seen i))
       (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
-      (freshen dd p :full))))
+      )))
 
-(defn move-player [pc mons dd ^SGPane p ^SGKeyListener kl newpos]
+(comment(defn move-player [pc mons dd ^SGPane p ^SGKeyListener kl newpos]
   (do (if
         (and (apply distinct? (conj (map (fn [atm] (:pos @atm)) @mons) newpos))
              (or (= (aget ^doubles (:dungeon @dd) newpos) floor) (= (aget ^doubles (:dungeon @dd) newpos) 10001.0) (= (aget ^doubles (:dungeon @dd) newpos) 10002.0)))
@@ -640,16 +627,15 @@
           (doseq [mon @mons] (when (= (:pos @mon) newpos)
                                    (damage-monster mon dd p)))
           (move-monster @mons dd p)
-          (freshen dd p)))))
+          (freshen dd p))))))
 
-(defn shoot [pc mons dd ^SGPane p ^SGKeyListener kl target]
+(defn shoot [pc mons dd target monhash]
     (let [mon-list (drop-while #(not= target (:ident @%)) @mons)]
       (when (seq mon-list)
         (let [tgt (first mon-list)]
       (when (> (aget (:seen @pc) (mod (:pos @tgt) wide) (quot (:pos @tgt) wide)) 0)
-        (damage-monster tgt dd p 1 2)
-        (move-monster @mons dd p)
-        (freshen dd p))
+        (damage-monster tgt dd monhash 1 2)
+        (move-monster @mons dd monhash))
     ))))
 
 
@@ -690,7 +676,7 @@
 
 (defn -main-old
 	[& args]
-  (comment ;"Remove these semicolons to view a dungeon when you run"
+ ; (comment ;"Remove these semicolons to view a dungeon when you run"
   (invoke-later
 	        (let [dd0 (prepare-bones)
                 dd (first dd0)
@@ -709,7 +695,7 @@
                 pack-eh (pack! f)
                 kl-eh (.addKeyListener ^Component f kl)
                 kl-up-eh (.addKeyListener ^Component f kl-up)
-                tmr (timer (fn [t]
+                tmr (comment (timer (fn [t]
                              (when (.hasNext kl)
                                (let [^KeyEvent e (.next kl)]
                                    ;(when (not (distinct? (.getKeyCode e) KeyEvent/VK_UP KeyEvent/VK_DOWN KeyEvent/VK_LEFT KeyEvent/VK_RIGHT
@@ -755,13 +741,16 @@
                          (when (.hasNext kl-up)
                            (.flush kl)
                            (.flush kl-up)))
-                           :delay 30)
+                           :delay 30))
                 ]
             (freshen dun p)
             ))
+  ;) ;
+  ;(show-dungeon) ;
   )
-  (show-dungeon)
-  )
+
+
+
 
 
 

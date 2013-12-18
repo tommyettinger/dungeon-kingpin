@@ -2661,13 +2661,6 @@ monster-dragon-smaug
   orig: 48, 64
   offset: 0, 0
   index: -1
-monster-human or elf-lareth
-  rotate: false
-  xy: 452, 794
-  size: 48, 64
-  orig: 48, 64
-  offset: 0, 0
-  index: -1
 monster-spider-lolth
   rotate: false
   xy: 452, 794
@@ -2675,7 +2668,14 @@ monster-spider-lolth
   orig: 48, 64
   offset: 0, 0
   index: -1
-monster-human or elf-intern
+monster-humanoid-gollum
+  rotate: false
+  xy: 452, 794
+  size: 48, 64
+  orig: 48, 64
+  offset: 0, 0
+  index: -1
+monster-human or elf-lareth
   rotate: false
   xy: 452, 794
   size: 48, 64
@@ -2696,35 +2696,14 @@ monster-humanoid-proudfoot
   orig: 48, 64
   offset: 0, 0
   index: -1
-monster-humanoid-farmer maggot
-  rotate: false
-  xy: 452, 794
-  size: 48, 64
-  orig: 48, 64
-  offset: 0, 0
-  index: -1
-monster-human or elf-transmuter
-  rotate: false
-  xy: 452, 794
-  size: 48, 64
-  orig: 48, 64
-  offset: 0, 0
-  index: -1
-monster-human or elf-sir lorimar
-  rotate: false
-  xy: 452, 794
-  size: 48, 64
-  orig: 48, 64
-  offset: 0, 0
-  index: -1
-monster-humanoid-bilbo baggins
-  rotate: false
-  xy: 452, 794
-  size: 48, 64
-  orig: 48, 64
-  offset: 0, 0
-  index: -1
 monster-human or elf-shifter
+  rotate: false
+  xy: 452, 794
+  size: 48, 64
+  orig: 48, 64
+  offset: 0, 0
+  index: -1
+monster-human or elf-master shifter
   rotate: false
   xy: 452, 794
   size: 48, 64
@@ -2738,28 +2717,21 @@ monster-humanoid-thorin
   orig: 48, 64
   offset: 0, 0
   index: -1
-monster-humanoid-gollum
+monster-human or elf-intern
   rotate: false
   xy: 452, 794
   size: 48, 64
   orig: 48, 64
   offset: 0, 0
   index: -1
-monster-human or elf-high lycanthrope
+monster-human or elf-sir lorimar
   rotate: false
   xy: 452, 794
   size: 48, 64
   orig: 48, 64
   offset: 0, 0
   index: -1
-monster-humanoid-fiend
-  rotate: false
-  xy: 452, 794
-  size: 48, 64
-  orig: 48, 64
-  offset: 0, 0
-  index: -1
-monster-human or elf-master shifter
+monster-human or elf-transmuter
   rotate: false
   xy: 452, 794
   size: 48, 64
@@ -2774,6 +2746,34 @@ monster-human or elf-ronin
   offset: 0, 0
   index: -1
 monster-humanoid-dwarf warrior
+  rotate: false
+  xy: 452, 794
+  size: 48, 64
+  orig: 48, 64
+  offset: 0, 0
+  index: -1
+monster-human or elf-high lycanthrope
+  rotate: false
+  xy: 452, 794
+  size: 48, 64
+  orig: 48, 64
+  offset: 0, 0
+  index: -1
+monster-humanoid-bilbo baggins
+  rotate: false
+  xy: 452, 794
+  size: 48, 64
+  orig: 48, 64
+  offset: 0, 0
+  index: -1
+monster-humanoid-farmer maggot
+  rotate: false
+  xy: 452, 794
+  size: 48, 64
+  orig: 48, 64
+  offset: 0, 0
+  index: -1
+monster-humanoid-fiend
   rotate: false
   xy: 452, 794
   size: 48, 64
@@ -8096,14 +8096,14 @@ object-scrolls-tharr-gold detection
   orig: 48, 64
   offset: 0, 0
   index: -1
-object-scrolls-verr yed horre-light
+object-scrolls-duam xnaht-amnesia
   rotate: false
   xy: 452, 200
   size: 48, 64
   orig: 48, 64
   offset: 0, 0
   index: -1
-object-scrolls-daiyen fooels-enchant weapon
+object-scrolls-verr yed horre-light
   rotate: false
   xy: 452, 200
   size: 48, 64
@@ -8138,7 +8138,7 @@ object-scrolls-read me
   orig: 48, 64
   offset: 0, 0
   index: -1
-object-scrolls-foobie bletch
+object-scrolls-elam ebow-magic mapping
   rotate: false
   xy: 452, 200
   size: 48, 64
@@ -8152,7 +8152,7 @@ object-scrolls-kirje-earth
   orig: 48, 64
   offset: 0, 0
   index: -1
-object-scrolls-duam xnaht-amnesia
+object-scrolls-kernod wel-identify
   rotate: false
   xy: 452, 200
   size: 48, 64
@@ -8166,14 +8166,21 @@ object-scrolls-pratyavayah-remove curse
   orig: 48, 64
   offset: 0, 0
   index: -1
-object-scrolls-juyed awk yacc-destroy armor
+object-scrolls-lep gex ven zea-create monster
   rotate: false
   xy: 452, 200
   size: 48, 64
   orig: 48, 64
   offset: 0, 0
   index: -1
-object-scrolls-lep gex ven zea-create monster
+object-scrolls-daiyen fooels-enchant weapon
+  rotate: false
+  xy: 452, 200
+  size: 48, 64
+  orig: 48, 64
+  offset: 0, 0
+  index: -1
+object-scrolls-hackem muche-charging
   rotate: false
   xy: 452, 200
   size: 48, 64
@@ -8194,21 +8201,7 @@ object-scrolls-yum yum-food detection
   orig: 48, 64
   offset: 0, 0
   index: -1
-object-scrolls-elam ebow-magic mapping
-  rotate: false
-  xy: 452, 200
-  size: 48, 64
-  orig: 48, 64
-  offset: 0, 0
-  index: -1
 object-scrolls-elbib yloh-genocide
-  rotate: false
-  xy: 452, 200
-  size: 48, 64
-  orig: 48, 64
-  offset: 0, 0
-  index: -1
-object-scrolls-kernod wel-identify
   rotate: false
   xy: 452, 200
   size: 48, 64
@@ -8229,6 +8222,13 @@ object-scrolls-velox neb-stinking cloud
   orig: 48, 64
   offset: 0, 0
   index: -1
+object-scrolls-foobie bletch
+  rotate: false
+  xy: 452, 200
+  size: 48, 64
+  orig: 48, 64
+  offset: 0, 0
+  index: -1
 object-scrolls-xixaxa xoxaxa xuxaxa-scare monster
   rotate: false
   xy: 452, 200
@@ -8236,14 +8236,14 @@ object-scrolls-xixaxa xoxaxa xuxaxa-scare monster
   orig: 48, 64
   offset: 0, 0
   index: -1
-object-scrolls-hackem muche-charging
+object-scrolls-ve forbryderne-punishment
   rotate: false
   xy: 452, 200
   size: 48, 64
   orig: 48, 64
   offset: 0, 0
   index: -1
-object-scrolls-ve forbryderne-punishment
+object-scrolls-juyed awk yacc-destroy armor
   rotate: false
   xy: 452, 200
   size: 48, 64
@@ -8719,13 +8719,6 @@ object-tools-bag-bag of holding
   orig: 48, 64
   offset: 0, 0
   index: -1
-object-tools-bag-oilskin sack
-  rotate: false
-  xy: 602, 2
-  size: 48, 64
-  orig: 48, 64
-  offset: 0, 0
-  index: -1
 object-tools-bag-sack
   rotate: false
   xy: 602, 2
@@ -8734,6 +8727,13 @@ object-tools-bag-sack
   offset: 0, 0
   index: -1
 object-tools-bag-bag of tricks
+  rotate: false
+  xy: 602, 2
+  size: 48, 64
+  orig: 48, 64
+  offset: 0, 0
+  index: -1
+object-tools-bag-oilskin sack
   rotate: false
   xy: 602, 2
   size: 48, 64
@@ -8803,14 +8803,14 @@ object-tools-candle-magic candle
   orig: 48, 64
   offset: 0, 0
   index: -1
-object-tools-candle-wax candle
+object-tools-candle-tallow candle
   rotate: false
   xy: 702, 68
   size: 48, 64
   orig: 48, 64
   offset: 0, 0
   index: -1
-object-tools-candle-tallow candle
+object-tools-candle-wax candle
   rotate: false
   xy: 702, 68
   size: 48, 64

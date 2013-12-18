@@ -1,11 +1,13 @@
 (ns dk.DKGame
   (:use dk.core)
-  (:import (com.badlogic.gdx Game Screen Gdx Files Input Input$Keys)
-           (com.badlogic.gdx.math Rectangle Vector3)
-           (com.badlogic.gdx.scenes.scene2d Stage)
-           (com.badlogic.gdx.scenes.scene2d.ui Label Label$LabelStyle Image)
-           (com.badlogic.gdx.graphics Color GL10 OrthographicCamera)
-           (com.badlogic.gdx.graphics.g2d BitmapFont TextureAtlas TextureAtlas$AtlasSprite TextureAtlas$AtlasRegion SpriteBatch))
+  (:require [clojure.pprint :as p])
+  (:import [com.badlogic.gdx Game Screen Gdx Files Input Input$Keys InputProcessor]
+           [com.badlogic.gdx.math Rectangle Vector3]
+           [com.badlogic.gdx.scenes.scene2d Stage]
+           [com.badlogic.gdx.scenes.scene2d.ui Label Label$LabelStyle Image]
+           [com.badlogic.gdx.graphics Color GL10 OrthographicCamera]
+           [com.badlogic.gdx.graphics.g2d BitmapFont TextureAtlas TextureAtlas$AtlasSprite TextureAtlas$AtlasRegion SpriteBatch]
+           [squidpony.squidcolor SColor SColorFactory])
   ;(:require (dk [dkscreen :as dkscreen]))
   )
 (set! *warn-on-reflection* true)
@@ -23,34 +25,26 @@
 (declare cw) ; crosswall
 (declare Tu) (declare Td) (declare Tl) (declare Tr) ; T-shaped up/down/left/right
 
-(defn handle-input [^OrthographicCamera cam]
-
-		(when (.isKeyPressed Gdx/input Input$Keys/LEFT)
-			;(when (> (.x (.position cam)) 0.0)
-				(.translate cam -4.0 0.0 0.0))
-		(when (.isKeyPressed Gdx/input Input$Keys/RIGHT)
-			;(when (< (.x (.position cam)) 1024.0)
-				(.translate cam 4.0 0.0 0.0))
-		(when (.isKeyPressed Gdx/input Input$Keys/DOWN)
-				(.translate cam 0.0 -4.0 0.0))
-		(when (.isKeyPressed Gdx/input Input$Keys/UP)
-				(.translate cam 0.0 4.0 0.0))
-		)
 
 (defn -create [^Game this]
-   (def ^OrthographicCamera camera (OrthographicCamera.))
-   (.setToOrtho ^OrthographicCamera camera false 1200.0 640.0 )
-   (.set ^Vector3 (.position ^OrthographicCamera camera) 2600.0 -1600.0 0.0);
-
-   (def glViewport (Rectangle. 0.0 0.0 1200.0 640.0))
-  ; (.setScreen this (dkscreen/screen))
-
-;   (def stage (Stage.))
-   (def ^TextureAtlas packed (TextureAtlas. (.internal ^Files Gdx/files "slashem-sepia/pack.atlas")))
+   (def screen-width  1200.0)
+   (def screen-height 640.0)
+   (def ^TextureAtlas packed (TextureAtlas. (.internal ^Files Gdx/files "slashem-packed/pack.atlas")))
    (def ^SpriteBatch batch (SpriteBatch.))
    (defn ^TextureAtlas$AtlasSprite grab [sprite] (TextureAtlas$AtlasSprite. ^TextureAtlas$AtlasRegion (.findRegion ^TextureAtlas packed sprite)))
 
-   (def dragon (grab "monster-dragon-ixoth"))
+   (def dragon (grab "monster-dragon-ixoth")) ; monster-eye or sphere-beholder
+   (def monster-tiles [(grab "monster-dragon-ixoth")
+                       (grab "monster-eye or sphere-beholder")
+                       (grab "monster-cat or other feline-displacer beast")
+                       (grab "monster-ant or other insect-migo queen")
+                       (grab "monster-golem-diamond golem")
+                       (grab "monster-major demon-ice devil")
+                       (grab "monster-ogre-shadow ogre")
+                       (grab "monster-pudding or ooze-giant shoggoth")
+                       (grab "monster-humanoid-scathe seer")
+                       (grab "monster-dog or other canine-mist wolf")
+                       (grab "monster-major demon-demogorgon")])
    (def nucky (grab "monster-human or elf-chief yeoman warder"))
    (def sv (grab "cmap-wall-vertical"))
    (def sh (grab "cmap-wall-horizontal"))
@@ -65,8 +59,17 @@
    (def Td (grab "cmap-wall-tee down"))
    (def Tl (grab "cmap-wall-tee left"))
    (def Tr (grab "cmap-wall-tee right"))
+   (def stairs-up (grab "cmap-staircase up"))
+   (def stairs-down (grab "cmap-staircase down"))
+   (def water  (grab "cmap-water")) ; ~
+   (def ice    (grab "cmap-ice")) ; ^
+   (def stones (grab "object-venoms-splash of venom-blinding venom")) ; &
+   (def statue (grab "object-large stones-statue")) ; $
+   (def leaf   (grab "object-food-eucalyptus leaf")) ; %
 
- (defn clean-bones [^doubles dd]
+
+
+ (defn clean-bones [^doubles dd ^chars shown]
   (map-indexed (fn [i t] (if (= t wall)
     (let [left  (if (> (mod i wide) 0)           (and (not= (aget dd (- i 1)) dark)    (= (aget dd (- i 1)) wall))    false)
           right (if (< (mod i wide) (dec wide))  (and (not= (aget dd (+ i 1)) dark)    (= (aget dd (+ i 1)) wall))    false)
@@ -103,60 +106,203 @@
                     down dr
                     :else sh)
           (or top down) sv
-          :else gr
+          :else sh
           ))
-      gr)) (vec dd)))
 
-  (comment
-   (def normal-dungeon {:sv (grab "cmap-wall-vertical") :sh (grab "cmap-wall-horizontal") :gr (grab "cmap-floor of a room") :da (grab "cmap-dark part of a room")
-                        :ul (grab "cmap-wall-bottom right corner") :ur (grab "cmap-wall-bottom left corner") :dl (grab "cmap-wall-top right corner") :dr (grab "cmap-wall-top left corner")
-                        :cw (grab "cmap-wall-crosswall")
-                        :Tu (grab "cmap-wall-tee up") :Td (grab "cmap-wall-tee down") :Tl (grab "cmap-wall-tee left") :Tr (grab "cmap-wall-tee right")}))
+          (condp = t
+                10001.0 stairs-up
+                10002.0 stairs-down
+            (condp = (aget shown i)
+                   \~ water
+                   \^ ice
+                   \$ statue
+                   \+ ice ; stones
+                   \% leaf
+                   gr))
+        )) (vec dd)))
 
-   (let [;{:keys [sv sh gr da ul ur dl dr cw Tu Td Tl Tr]} normal-dungeon
-         dd0 (prepare-bones)]
-         (def dd (first dd0))
-         (def colors (mapv (fn [eh] (Color. (- 1.0 (* 0.0007 (rand-int 50))) (- 1.0 (* 0.0007 (rand-int 50))) (- 1.0 (* 0.0007 (rand-int 50))) 1.0)) (range (* wide high))))
-         (def cleaned (clean-bones dd))
-         (def player-calc  (init-dungeon dd player))
-         (def monster-calc (doall (map #(init-dungeon dd %) @monsters)))
-         (def monster-hash (into {} (map (fn [entry] [(:pos @entry) entry]) @monsters)))
+   (let [
+         dd0 (prepare-bones)
+         dd1 (first dd0)
+         dungeon-res (dungeon-resistances dd1)
+         shown (last dd0)]
+         (def dd dd1)
+         (def dun (atom {:dungeon dd :shown shown :res dungeon-res}))
+         (def colors (mapv (fn [_] (Color. (- 1.0 (* 0.0007 (rand-int 50))) (- 1.0 (* 0.0007 (rand-int 50))) (- 1.0 (* 0.0007 (rand-int 50))) 1.0)) (range (* wide high))))
+         (def cleaned (atom(clean-bones dd shown)))
+
+         (init-dungeon dd player)
+         (swap! player assoc :seen (run-fov-player player dun))
+         (doall (map #(init-dungeon dd %) @monsters))
+         (doall (map #(swap! % assoc :tile (rand-nth monster-tiles)) @monsters))
+         (def monster-hash (atom(into {} (map (fn [entry] [(:pos @entry) entry]) @monsters))))
          )
+   (defn update-fov [dun]
+         (swap! player assoc :seen (run-fov-player player dun))
+         (doall (map-indexed #(let [x (mod %1 wide) y (quot %1 wide)] (Color/rgb888ToColor %2 (.getRGB ^SColor (if (> (aget (:seen @player) x y) 0)
+                                                                           (SColorFactory/blend SColor/BLACK SColor/CREAM (aget (:seen @player) x y))
+                                                                           (if
+                                                                             (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))
+                                                                               SColor/GRAY
+                                                                               SColor/BLACK
+                                                                             ))))) colors))
+     colors)
+   (update-fov dun)
+   (def ^OrthographicCamera camera (OrthographicCamera.))
+   (.setToOrtho ^OrthographicCamera camera false screen-width screen-height)
+   (.set ^Vector3 (.position ^OrthographicCamera camera) (+ (* 32.0 (mod (:pos @player) wide)) (* 16.0 (- wide (quot (:pos @player) wide)))) (- screen-height 64.0 (* 32.0 (quot (:pos @player) wide))) 0.0)
 
-   (comment (let [font (BitmapFont.)
-            style (Label$LabelStyle. font (Color. 1.0 1.0 1.0 1.0))
-            label (Label. "Hello Clojure!" style)
-            sprite (Image. (.createSprite packed "monster-angelic being-solar"))]
-            (.addActor stage label)
-            (.addActor stage sprite)
-            (.translate sprite 240.0 128.0)))
-  )
+   (def glViewport (Rectangle. 0.0 0.0 screen-width screen-height))
 
-(defn -render [^Float delta]
-  (handle-input ^OrthographicCamera camera)
-  (let [gl (.getGL10 Gdx/graphics)]
+
+(defn refresher []
+  (let [gl (.getGL10 Gdx/graphics)
+        seen (:seen @player)]
 	(.glClear gl GL10/GL_COLOR_BUFFER_BIT);
-
-;  (.glClearColor gl 0.0, 0.0, 0.0, 1.0)
   (.glViewport gl (int (.x ^Rectangle glViewport)) (int (.y ^Rectangle glViewport)) (int (.width ^Rectangle glViewport)), (int (.height ^Rectangle glViewport)))
   (.update ^OrthographicCamera camera)
   (.apply ^OrthographicCamera camera gl)
 
   (.setProjectionMatrix ^SpriteBatch batch (.combined ^OrthographicCamera camera))
-  ;(let
-   ; [{:keys [sv sh gr da ul ur dl dr cw Tu Td Tl Tr]} normal-dungeon]
   (.begin ^SpriteBatch batch)
-  (dorun (map-indexed #(do (.setColor ^SpriteBatch batch ^Color (nth colors %1)) ; ^TextureAtlas$AtlasSprite %2
-                         (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite %2 (+ (* 32.0 (mod %1 wide)) (* 16 (- wide (quot %1 wide)))) (- 640.0 64 (* 32 (quot %1 wide))))
-                         (.setColor ^SpriteBatch batch ^Color Color/WHITE)
-                         (when (contains? monster-hash %1) (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite dragon (+ (* 32.0 (mod %1 wide)) (* 16 (- wide (quot %1 wide)))) (- 640.0 64 (* 32 (quot %1 wide)))))
-                         (when (= %1 (:pos @player)) (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite nucky (+ (* 32.0 (mod %1 wide)) (* 16 (- wide (quot %1 wide)))) (- 640.0 64 (* 32 (quot %1 wide)))))
-                         ) cleaned)) ; (float 48.0) (float 64.0)
+  (doseq [y (range high)]
+  (doseq [x (range wide)]
+    (let [is-seen (aget seen x y) idx (+ (* y wide) x) c (nth @cleaned idx)] ; x (mod idx wide) y (quot idx wide)
+     (when
+        (and (< (Math/abs (- (+ (* 32.0 (mod (:pos @player) wide)) (* 16.0 (- wide (quot (:pos @player) wide))))
+                             (+ (* 32.0 x) (* 16 (- wide y))))) (+ 48 (/ screen-width 2)))
+             (< (Math/abs (- (- screen-height 64.0 (* 32.0 (quot (:pos @player) wide)))
+                             (- 640.0 64 (* 32 y)))) (+ 64 (/ screen-height 2)))
+             )
+      ;  (<= (+ (Math/abs ^int (- (mod (:pos @player) wide) x)) (Math/abs ^int (- (quot (:pos @player) wide) y))) 13)
+        (.setColor ^SpriteBatch batch ^Color (nth colors idx)) ; ^TextureAtlas$AtlasSprite %2
+        (if (or (> is-seen 0) (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))) (when (not= (nth (:dungeon @dun) idx) wall)
+                                                                              (.draw ^SpriteBatch batch (if (or (= c ice) (= c water)) ^TextureAtlas$AtlasSprite c ^TextureAtlas$AtlasSprite gr)
+                                                                                  (+ (* 32.0 x) (* 16 (- wide y)))
+                                                                                  (- 640.0 64 (* 32 y)))
+                                                                                        ))
+      )
+      )
+    )
+  (doseq [x (range wide)]
+    (let [is-seen (aget seen x y) idx (+ (* y wide) x) c (nth @cleaned idx)] ; x (mod idx wide) y (quot idx wide)
+      (when
+        (and (< (Math/abs (- (+ (* 32.0 (mod (:pos @player) wide)) (* 16.0 (- wide (quot (:pos @player) wide))))
+                             (+ (* 32.0 x) (* 16 (- wide y))))) (+ 48 (/ screen-width 2)))
+             (< (Math/abs (- (- screen-height 64.0 (* 32.0 (quot (:pos @player) wide)))
+                             (- 640.0 64 (* 32 y)))) (+ 64 (/ screen-height 2)))
+             )
+      ;  (<= (+ (Math/abs ^int (- (mod (:pos @player) wide) x)) (Math/abs ^int (- (quot (:pos @player) wide) y))) 13)
+        (.setColor ^SpriteBatch batch ^Color (nth colors idx)) ; ^TextureAtlas$AtlasSprite %2
+
+        (if (or (> is-seen 0) (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))) (do (when (or (>= (nth (:dungeon @dun) idx) wall) (= c statue) (= c stones) (= c leaf))
+
+                                                                            (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite (nth @cleaned idx)
+                                                                                (+ (* 32.0 x) (* 16 (- wide y)))
+                                                                                (- 640.0 64 (* 32 y))))))
+        (when (and (> is-seen 0) (contains? @monster-hash idx))
+          (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite (:tile @(get @monster-hash idx)) (+ (* 32.0 x) (* 16 (- wide y))) (- 640.0 64 (* 32 y))))
+        (when (= idx (:pos @player)) (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite nucky (+ (* 32.0 x) (* 16 (- wide y))) (- 640.0 64 (* 32 y))))
+      )
+    )
+    )
+    )
   (.end ^SpriteBatch batch)))
+
+(defn shift-player [pc mons dd newpos]
+  (if
+        (and (apply distinct? (conj (map (fn [atm] (:pos @atm)) @mons) newpos))
+             (or (= (aget ^doubles (:dungeon @dd) newpos) floor) (= (aget ^doubles (:dungeon @dd) newpos) 10001.0) (= (aget ^doubles (:dungeon @dd) newpos) 10002.0)))
+        (do
+          (swap! pc assoc :pos newpos)
+          (condp = (aget ^doubles (:dungeon @dd) newpos)
+            floor (do
+                    (move-monster @mons dd monster-hash)
+                    (refresher))
+            10001.0 (do
+                      (if (= @dlevel 0)
+                            (println (str "YOU ESCAPED.  You explored "
+                               (count (filter true?
+                                         (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @pc))))))
+                               " squares."))
+                            (do (ascend pc mons dd)
+                              (reset! cleaned (clean-bones (:dungeon @dd) (:shown @dd)))
+                              (reset! monster-hash (into {} (map (fn [entry] [(:pos @entry) entry]) @monsters)))
+                              (update-fov dd)
+                              (refresher)
+                              (println
+                                (str "YOU ASCEND TO FLOOR " (inc @dlevel) "...  You explored "
+                                  (count (filter true?
+                                            (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @pc))))))
+                                  " squares.")))
+                    ))
+            10002.0 (do
+                      (descend pc mons dd)
+                      (reset! cleaned (clean-bones (:dungeon @dd) (:shown @dd)))
+                      (reset! monster-hash (into {} (map (fn [entry] [(:pos @entry) entry]) @monsters)))
+                      (update-fov dd)
+                      (refresher)
+                      (println
+                        (str "YOU DESCEND TO FLOOR " (inc @dlevel) "...  You explored "
+                          (count (filter true?
+                                         (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @pc))))))
+                           " squares.")))
+            (println "Something's wrong."))
+          )
+        (when (= (aget ^doubles (:dungeon @dd) newpos) floor)
+
+          (doseq [mon @mons] (when (= (:pos @mon) newpos)
+                                   (damage-monster mon dd monster-hash)))
+          (move-monster @mons dd monster-hash)))
+  (update-fov dd)
+          ;(refresher)
+  )
+  (defn center-camera []
+        (.set ^Vector3 (.position ^OrthographicCamera camera) (+ (* 32.0 (mod (:pos @player) wide)) (* 16.0 (- wide (quot (:pos @player) wide)))) (- 640.0 64.0 (* 32.0 (quot (:pos @player) wide))) 0.0))
+  (.setInputProcessor Gdx/input (reify
+                                  InputProcessor
+
+   (keyDown [this keycode] (do (condp = keycode
+      Input$Keys/UP    (do (shift-player player monsters dun (- (:pos @player) wide)) (center-camera))
+		  Input$Keys/DOWN  (do (shift-player player monsters dun (+ (:pos @player) wide)) (center-camera))
+      Input$Keys/LEFT  (do (shift-player player monsters dun (- (:pos @player) 1)) (center-camera))
+      Input$Keys/RIGHT (do (shift-player player monsters dun (+ (:pos @player) 1)) (center-camera))
+                                 true)
+            true))
+   (keyUp [this keycode] false)
+   (keyTyped [this keycode] false)
+
+   (touchDown [this x, y, pointer, button] false)
+   (touchUp   [this x, y, pointer, button] false)
+   (touchDragged [this x, y, pointer] false)
+   (mouseMoved [this x, y] false)
+   (scrolled [this amount] false)
+))
+)
+(defn handle-input [^OrthographicCamera cam dun]
+		(cond
+		  (.isKeyPressed Gdx/input Input$Keys/UP)    (shift-player player monsters dun (- (:pos @player) wide))
+		  (.isKeyPressed Gdx/input Input$Keys/DOWN)  (shift-player player monsters dun (+ (:pos @player) wide))
+      (.isKeyPressed Gdx/input Input$Keys/LEFT)  (shift-player player monsters dun (- (:pos @player) 1))
+      (.isKeyPressed Gdx/input Input$Keys/RIGHT) (shift-player player monsters dun (+ (:pos @player) 1))
+      ;(.isKeyPressed Gdx/input Input$Keys/P)     (dorun (map #(print (.toString %) "  ") colors))
+    )
+)
+
+
+(defn -render [^Float delta]
+;  (handle-input ^OrthographicCamera camera dun)
+  (refresher)
+        ;(refresher)
+  )
 
 
 
 ;  (doto stage
  ;       (.act delta)
   ;      (.draw))
+
+
+
+
 
