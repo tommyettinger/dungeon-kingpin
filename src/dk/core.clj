@@ -37,7 +37,7 @@
 (defn make-player-label [] (label :text (str "AdventureMan. HP " (:hp @player)) :size [150 :by 16]))
 (defn make-welcome-message [] (label :text "Welcome to Ruins in... Something!":size [690 :by 16]))
 (defn make-other-message [script] (label :text script :size [690 :by 16]))
-(def monsters (atom (vec (for [i (range 1 15)] (atom {:pos 0 :show \M :hp 9 :vision 10 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
+(def monsters (atom (vec (for [i (range 1 20)] (atom {:pos 0 :show \M :hp 8 :vision 7 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
 (def ^TranslucenceWrapperFOV fov (TranslucenceWrapperFOV. ))
 
 (defn visible-monsters [] (filter (complement nil?) (for [mon @monsters] (if (> (aget (:seen @player) (mod (:pos @mon) wide) (quot (:pos @mon) wide)) 0)
@@ -63,7 +63,7 @@
                         :vscroll :always :size [600 :by 70]))
 
 
-(defn ^doubles make-bones []
+(defn make-bones []
   (let [seed (rand-int (count horiz))
         initial (horiz seed)
         hvec (map #(map (fn [s] (vec s)) %) horiz)
@@ -328,21 +328,31 @@
                                                          (if (filt (hiphip/aget ^doubles dngn rand-loc))
 			                                                        (recur (do (aset ^chars shown ^int rand-loc ^char shown-cell) (hiphip/aset ^doubles dngn rand-loc cell) (inc ctr))) (recur ctr)))))))
 
+(defn find-cells [^doubles a cell-kind]
+    (persistent! (areduce ^doubles a i ret (transient {})
+                          (if (= (aget ^doubles a i) cell-kind) (assoc! ret i cell-kind) ret))))
+
+(comment
 (defn find-cells [a cell-kind]
   (let [dngn (vec a)]
-  	  (into {} (for [x (keep-indexed #(if (= %2 cell-kind) %1) dngn)] [x cell-kind]))))
+  	  (into {} (for [x (keep-indexed #(if (= %2 cell-kind) %1) dngn)] [x cell-kind])))))
 
-(defn find-goals [a]
+(defn find-goals [^doubles a]
   (find-cells a GOAL))
 
+(defn find-walls [^doubles a]
+    (persistent! (areduce ^doubles a i ret (transient {})
+                          (if (>= (aget ^doubles a i) wall) (assoc! ret i wall) ret))))
+
+(comment
 (defn find-walls [a]
   (let [dngn (vec a)]
-  	  (into {} (for [x (keep-indexed #(if (>= %2 wall) %1) dngn)] [x wall]))))
+  	  (into {} (for [x (keep-indexed #(if (>= %2 wall) %1) dngn)] [x wall])))))
 
-(defn find-floors [a]
+(defn find-floors [^doubles a]
   (find-cells a floor))
 
-(defn find-lowest [a]
+(defn find-lowest [^doubles a]
   (let [low-val (apply min (vec a))]
     (find-cells a low-val)))
 
@@ -444,7 +454,8 @@
                               (config! (acquire [:#entities]) :items (concat [(make-player-label)] (visible-monsters)))
                               (-> f show! )))
 
-(defn damage-player [entity dd]
+(defn damage-player
+  ([entity dd]
   (do (swap! entity assoc :hp (- (:hp @entity) (inc (rand-int 4))))
     (if (<= (:hp @player) 0)
       (do
@@ -453,6 +464,15 @@
                                          (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @player))))))
                           " squares and reached floor " (inc @dlevel) "."
                           )) (System/exit 0)))))
+  ([entity dd amt]
+  (do (swap! entity assoc :hp amt)
+    (if (<= (:hp @player) 0)
+      (do
+        (println (str "GAME OVER.  You explored "
+                          (count (filter true?
+                                         (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @player))))))
+                          " squares and reached floor " (inc @dlevel) "."
+                          )) (System/exit 0))))))
 
 (defn damage-monster
   ([entity dd monhash]
