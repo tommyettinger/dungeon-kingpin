@@ -39,10 +39,6 @@
    ;(doseq [sp (range 21)] (.setColor ^Sprite (nth health sp) 0.0 1.0 0.3 1.0))
    (def ^Sprite health-red (Sprite. (Texture. "health-red.png") 20 20))
    ;█
-   (comment (def ^BitmapFont mandrill-16 (BitmapFont. (.internal ^Files Gdx/files "Roboto-24.fnt") false))
-   (.setColor ^BitmapFont mandrill-16 0.0 1.0 0.3 1.0)
-   (def ^BitmapFont mandrill-16-red (BitmapFont. (.internal ^Files Gdx/files "Roboto-24.fnt") false))
-   (.setColor ^BitmapFont mandrill-16-red 1.0 0.1 0.1 1.0))
    (def ^TextureAtlas packed (TextureAtlas. (.internal ^Files Gdx/files "slashem-packed/pack.atlas")))
    (def ^SpriteBatch batch (SpriteBatch.))
    (defn ^TextureAtlas$AtlasSprite grab [sprite] (TextureAtlas$AtlasSprite. ^TextureAtlas$AtlasRegion (.findRegion ^TextureAtlas packed sprite)))
@@ -83,7 +79,7 @@
 
 
 
- (defn ones [^doubles dd ^chars shown]
+ (defn clean-bones [^doubles dd ^chars shown]
   (map-indexed (fn [i t] (if (= t wall)
     (let [left  (if (> (mod i wide) 0)           (and (not= (aget dd (- i 1)) dark)    (= (aget dd (- i 1)) wall))    false)
           right (if (< (mod i wide) (dec wide))  (and (not= (aget dd (+ i 1)) dark)    (= (aget dd (+ i 1)) wall))    false)
@@ -143,7 +139,7 @@
          (def dd dd1)
          (def dun (atom {:dungeon dd :shown shown :res dungeon-res}))
          (def colors (mapv (fn [_] (Color. (- 1.0 (* 0.0007 (rand-int 50))) (- 1.0 (* 0.0007 (rand-int 50))) (- 1.0 (* 0.0007 (rand-int 50))) 1.0)) (range (* wide high))))
-         (def cleaned (atom(ones dd shown)))
+         (def cleaned (atom(clean-bones dd shown)))
 
          (init-dungeon dd player)
          (swap! player assoc :seen (run-fov-player player dun))
@@ -259,7 +255,7 @@
                                          (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @pc))))))
                                " squares."))
                             (do (ascend pc mons dd)
-                              (reset! cleaned (ones (:dungeon @dd) (:shown @dd)))
+                              (reset! cleaned (clean-bones (:dungeon @dd) (:shown @dd)))
                               (reset! monster-hash (into {} (map (fn [entry] [(:pos @entry) entry]) @monsters)))
                               (update-fov dd)
                               (refresher)
@@ -271,7 +267,7 @@
                     ))
             10002.0 (do
                       (descend pc mons dd)
-                      (reset! cleaned (ones (:dungeon @dd) (:shown @dd)))
+                      (reset! cleaned (clean-bones (:dungeon @dd) (:shown @dd)))
                       (reset! monster-hash (into {} (map (fn [entry] [(:pos @entry) entry]) @monsters)))
                       (update-fov dd)
                       (refresher)

@@ -1,20 +1,19 @@
 (ns dk.core
-  (:use seesaw.core
-        dk.herringbone)
+  (:use dk.herringbone)
 	(:require [hiphip.double :as hiphip]
             [hiphip.array :as harray])
   (:import [squidpony.squidcolor SColor SColorFactory]
-           [squidpony.squidgrid.gui SGPane]
-           [squidpony.squidgrid.gui.awt.event SGKeyListener SGKeyListener$CaptureType ]
            [squidpony.squidgrid.fov TranslucenceWrapperFOV BasicRadiusStrategy]
-           [squidpony.squidgrid.gui.swing SwingPane]
            [java.awt Font Component Point]
-           [java.awt.event KeyListener KeyEvent]
-           [javax.swing JOptionPane]
            [java.io File])
   (:gen-class))
+
+(defmethod print-dup (Class/forName "[D") [a out] (.write out (str "#=" `(double-array ~(vec a)))))
+(defmethod print-dup (Class/forName "[C") [a out] (.write out (str "#=" `(char-array ~(vec a)))))
+(defmethod print-dup (Class/forName "[Z") [a out] (.write out (str "#=" `(boolean-array ~(vec a)))))
+
+;; (binding [*print-dup* true] (read-string (pr-str (first (prepare-bones)))))
 (set! *warn-on-reflection* true)
-(native!)
 (def wide 40)
 (def high 40)
 (def ^Long iw (- wide 2)) ;inner width
@@ -34,34 +33,8 @@
                      res1d))
 
 (def player (atom {:pos 0 :show \@ :hp 99 :vision 12 :dijkstra nil :seen nil :full-seen (init-full-seen)}))
-(defn make-player-label [] (label :text (str "AdventureMan. HP " (:hp @player)) :size [150 :by 16]))
-(defn make-welcome-message [] (label :text "Welcome to Ruins in... Something!":size [690 :by 16]))
-(defn make-other-message [script] (label :text script :size [690 :by 16]))
 (def monsters (atom (vec (for [i (range 1 20)] (atom {:pos 0 :show \M :hp 8 :vision 7 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
 (def ^TranslucenceWrapperFOV fov (TranslucenceWrapperFOV. ))
-
-(defn visible-monsters [] (filter (complement nil?) (for [mon @monsters] (if (> (aget (:seen @player) (mod (:pos @mon) wide) (quot (:pos @mon) wide)) 0)
-                                                (label :text (str "<" (:ident @mon) "> Monster. HP " (:hp @mon)))
-                                                nil))))
-
-(def f (frame :title "Ruins in Roswell" :on-close :exit :size [777 :by 700]))
-
-(defn display [^Component content]
-  (config! f :content content)
-  (. content setVisible true)
-  content)
-
-(defn acquire [kw] (select (to-root f) kw))
-
-(defn ^SGPane pane [] (SwingPane. wide high (try (let [fnt (File. "zodiac_square.ttf")]
-                                                   (.deriveFont (Font/createFont Font/TRUETYPE_FONT fnt) 8.0))
-                                              (catch Exception e (Font. Font/MONOSPACED Font/PLAIN 14.0)))))
-
-(defn stats-pane [] (vertical-panel :id :entities :items (concat [(make-player-label)] (visible-monsters)) :size [150 :by 600]))
-(defn messages-pane [] (scrollable
-                        (vertical-panel :id :messages :items [(make-welcome-message)])
-                        :vscroll :always :size [600 :by 70]))
-
 
 (defn make-bones []
   (let [seed (rand-int (count horiz))
@@ -137,137 +110,6 @@
 			(> i (- (* wide high) wide)))
 		 \#
 		 (aget shown (+ (* 10 ow) -10 (* 20 (quot i wide)) (- i (dec wide) (* 2 (quot i wide)))))))
-                                       ]))
-
-(defn ^doubles make-bones-original []
-  (let [seed (rand-int (count horiz))
-        initial (horiz seed)
-        hvec (map #(map (fn [s] (vec s)) %) horiz)
-        vvec (map #(map (fn [s] (vec s)) %) vert)
-        initial (hiphip/amake [i (* iw ih)] wall)
-        shown (char-array (* iw ih) \#)]
-    (loop [horiz true starting-horiz true next-fill 0]
-      (if (>= (+ (* 20 iw ) next-fill) (* iw ih))
-          initial
-          (if horiz
-              (let [hofull (rand-nth hvec)
-                    ho (vec (map #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) hofull))]
-                (doseq [nf (range 10)] (hiphip/afill! [[i eh] initial :range [(+ (* iw nf) next-fill) (+ 20 (* iw nf) next-fill)]]
-                                                                  (nth (nth ho nf) (- i (* iw nf) next-fill)))
-                                       (harray/afill! Character/TYPE [[i eh] shown :range [(+ (* iw nf) next-fill) (+ 20 (* iw nf) next-fill)]]
-                                                                  (nth (nth hofull nf) (- i (* iw nf) next-fill))))
-                (recur
-                 (if (< (mod (+ 30 next-fill) iw) (mod next-fill iw))
-                   (not starting-horiz)
-                   (not horiz))
-                 (if (< (mod (+ 30 next-fill) iw) (mod next-fill iw))
-                   (not starting-horiz)
-                   starting-horiz)
-                 (long (if starting-horiz
-                   (if (< (mod (+ 30 next-fill) iw) (mod next-fill iw))
-                     (+ (* iw 10) (- next-fill (mod next-fill iw )))
-                     (+ 30 next-fill) )
-                   (if (< (mod (+ 30 next-fill) iw) (mod next-fill iw))
-                       (+ (* iw 30) (- next-fill (mod next-fill iw )))
-                       (+ 30 next-fill) )))))
-              (let [vefull (rand-nth vvec)
-                    ve (vec (map #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) vefull))]
-                (doseq [nf (range 20)] (hiphip/afill! [[i eh] initial :range [(+ (* iw nf) next-fill) (+ 10 (* iw nf) next-fill)]]
-                                                                  (nth (nth ve nf) (- i (* iw nf) next-fill)))
-                  (harray/afill! Character/TYPE [[i eh] shown :range [(+ (* iw nf) next-fill) (+ 10 (* iw nf) next-fill)]]
-                                                                  (nth (nth vefull nf) (- i (* iw nf) next-fill))))
-                (recur
-                 (if (< (mod (+ 10 next-fill) iw) (mod next-fill iw))
-                   (not starting-horiz)
-                   (not horiz))
-                 (if (< (mod (+ 10 next-fill) iw) (mod next-fill iw))
-                   (not starting-horiz)
-                   starting-horiz)
-                 (long (if starting-horiz
-                   (if (< (mod (+ 10 next-fill) iw) (mod next-fill iw))
-                     (+ (* iw 10) (- next-fill (mod next-fill iw )))
-                     (+ 10 next-fill) )
-                   (if (< (mod (+ 10 next-fill) iw) (mod next-fill iw))
-                       (+ (* iw 30) (- next-fill (mod next-fill iw )))
-                       (+ 10 next-fill) )))))
-        )))
-    (loop [ horiz false next-fill (+ (* iw 20) 10)]
-      (if (>= (+ (* 20 iw ) next-fill) (* iw ih))
-          initial
-          (if horiz
-              (let [hofull (rand-nth hvec)
-                    ho (vec (map #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) hofull))]
-                (doseq [nf (range 10)] (hiphip/afill! [[i eh] initial :range [(+ (* iw nf) next-fill) (+ 20 (* iw nf) next-fill)]]
-                                                                  (nth (nth ho nf) (- i (* iw nf) next-fill)))
-                                       (harray/afill! Character/TYPE [[i eh] shown :range [(+ (* iw nf) next-fill) (+ 20 (* iw nf) next-fill)]]
-                                                                  (nth (nth hofull nf) (- i (* iw nf) next-fill))))
-                (recur
-                 (if (< (mod (+ 30 next-fill) iw) (mod next-fill iw))
-                   false
-                   (not horiz))
-                   (long (if (< (mod (+ 30 next-fill) iw) (mod next-fill iw))
-                       (+ 10 (* iw 40) (- next-fill (mod next-fill iw )))
-                       (+ 30 next-fill) ))))
-              (let [vefull (rand-nth vvec)
-                    ve (vec (map #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) vefull))]
-                (doseq [nf (range 20)] (hiphip/afill! [[i eh] initial :range [(+ (* iw nf) next-fill) (+ 10 (* iw nf) next-fill)]]
-                                                                  (nth (nth ve nf) (- i (* iw nf) next-fill)))
-                  (harray/afill! Character/TYPE [[i eh] shown :range [(+ (* iw nf) next-fill) (+ 10 (* iw nf) next-fill)]]
-                                                                  (nth (nth vefull nf) (- i (* iw nf) next-fill))))
-                (recur
-                 (if (< (mod (+ 10 next-fill) iw) (mod next-fill iw))
-                   false
-                   (not horiz))
-                   (long (if (< (mod (+ 10 next-fill) iw) (mod next-fill iw))
-                     (+ 10 (* iw 40) (- next-fill (mod next-fill iw )))
-                     (+ 10 next-fill) ))))
-        )))
-    (loop [ horiz false next-fill (+ (* iw 30) 20)]
-      (if (>= (+ (* 20 iw ) next-fill) (* iw ih))
-          initial
-          (if horiz
-              (let [hofull (rand-nth hvec)
-                    ho (vec (map #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) hofull))]
-                (doseq [nf (range 10)] (hiphip/afill! [[i eh] initial :range [(+ (* iw nf) next-fill) (+ 20 (* iw nf) next-fill)]]
-                                                                  (nth (nth ho nf) (- i (* iw nf) next-fill)))
-                                       (harray/afill! Character/TYPE [[i eh] shown :range [(+ (* iw nf) next-fill) (+ 20 (* iw nf) next-fill)]]
-                                                                  (nth (nth hofull nf) (- i (* iw nf) next-fill))))
-                (recur
-                 (if (< (mod (+ 30 next-fill) iw) (mod next-fill iw))
-                   false
-                   (not horiz))
-                   (if (< (mod (+ 30 next-fill) iw) (mod next-fill iw))
-                       (+ 20 (* iw 40) (- next-fill (mod next-fill iw )))
-                       (+ 30 next-fill) )))
-              (let [vefull (rand-nth vvec)
-                    ve (vec (map #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) vefull))]
-                (doseq [nf (range 20)] (hiphip/afill! [[i eh] initial :range [(+ (* iw nf) next-fill) (+ 10 (* iw nf) next-fill)]]
-                                                                  (nth (nth ve nf) (- i (* iw nf) next-fill)))
-                  (harray/afill! Character/TYPE [[i eh] shown :range [(+ (* iw nf) next-fill) (+ 10 (* iw nf) next-fill)]]
-                                                                  (nth (nth vefull nf) (- i (* iw nf) next-fill))))
-                (recur
-                 (if (< (mod (+ 10 next-fill) iw) (mod next-fill iw))
-                   false
-                   (not horiz))
-                   (if (< (mod (+ 10 next-fill) iw) (mod next-fill iw))
-                     (+ 20 (* iw 40) (- next-fill (mod next-fill iw )))
-                     (+ 10 next-fill) )))
-        )))
-    [(hiphip/amake [i (* wide high)] (if (or
-			(= (mod i wide) 0)
-			(= (mod i wide) (dec wide))
-			(< i wide)
-			(> i (- (* wide high) wide)))
-		 wall
-		 (hiphip/aget initial (- i (dec wide) (* 2 (quot i wide))))))
-
-     (harray/amake Character/TYPE [i (* wide high)] (if (or
-			(= (mod i wide) 0)
-			(= (mod i wide) (dec wide))
-			(< i wide)
-			(> i (- (* wide high) wide)))
-		 \#
-		 (aget shown (- i (dec wide) (* 2 (quot i wide))))))
                                        ]))
 
 (defn ^"[[F" dungeon-resistances [^doubles dungeon]
@@ -406,54 +248,6 @@
                                           w2 (apply max (filter (partial > wall) (vec (dijkstra (hiphip/aclone d2)))))]
                                       (recur d3 w2 (harray/afill! char [[i x] ^chars (last d0)] (if (= (aget ^doubles d3 i) wall) \# x))))))))
 
-(defn freshen [dd ^SGPane p & args]
-  (let [player-fov-new (swap! player assoc :seen (run-fov-player player dd))
-                                     ]
-                                 (doseq [x (range wide) y (range high)]
-                                                 (when
-                                                   (or args
-                                                    (<= (+ (Math/abs ^int (- (mod (:pos @player) wide) x)) (Math/abs ^int (- (quot (:pos @player) wide) y))) 11)
- ;                                                          (>= (- (mod (:pos @player) wide) x) -16)
-;                                                           (<= (Math/abs ^int (- (quot (:pos @player) wide) y)) 16)
-  ;                                                         (>= (- (quot (:pos @player) wide) y) -16)
-                                                     )
-                                                   (. p placeCharacter x
-                                                                     y
-                                                                     (if (= (aget ^doubles (:dungeon @dd) (+ x (* wide y))) wall) \# (aget ^chars (:shown @dd) (+ x (* wide y))))
-                                                                     SColor/BLACK
-                                                                     (if (= (aget ^doubles (:dungeon @dd) (+ x (* wide y))) wall)
-                                                                       (if
-                                                                         (> (aget (:seen @player) x y) 0)
-                                                                         (SColorFactory/blend SColor/BLACK SColor/CYPRESS_BARK_RED (aget (:seen @player) x y))
-                                                                         (if
-                                                                             (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))
-                                                                             SColor/BOILED_RED_BEAN_BROWN
-                                                                             SColor/BLACK))
-                                                                       (if
-                                                                         (> (aget (:seen @player) x y) 0)
-                                                                           (SColorFactory/blend SColor/BLACK SColor/CREAM (aget (:seen @player) x y))
-                                                                           (if
-                                                                             (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))
-                                                                               SColor/DARK_GRAY
-                                                                               SColor/BLACK
-                                                                             ))))
-                                                      ))
-                              (do (. p placeCharacter (mod (:pos @player) wide)
-                                                      (quot (:pos @player) wide)
-                                                      (:show @player)
-                                                      SColor/BLACK
-                                                      SColor/CREAM))
-                              (doseq [monster @monsters] (when (> (aget (:seen @player) (mod (:pos @monster) wide) (quot (:pos @monster) wide)) 0)
-                                                          (. p placeCharacter (mod (:pos @monster) wide)
-                                                                              (quot (:pos @monster) wide)
-                                                                              (:show @monster)
-                                                                              SColor/FOREIGN_CRIMSON
-
-                                                      (SColorFactory/blend SColor/BLACK SColor/CREAM (aget (:seen @player) (mod (:pos @monster) wide) (quot (:pos @monster) wide))))))
-                              (.refresh p)
-                              (config! (acquire [:#entities]) :items (concat [(make-player-label)] (visible-monsters)))
-                              (-> f show! )))
-
 (defn damage-player
   ([entity dd]
   (do (swap! entity assoc :hp (- (:hp @entity) (inc (rand-int 4))))
@@ -543,26 +337,8 @@
                                                       (= (aget ^doubles (:dungeon @dd) (+ (:pos @%) 1)) floor)) (swap! % assoc :pos (+ (:pos @%) 1)))]
                                             ) mon))
                                   (swap! monhash assoc (:pos @mon) mon))
-;                               (when (= \# (aget ^chars (:shown @dd) (:pos @mon)))
-;                                 (println "Monster intersecting with wall"))
                                  )
     flee-map))
-(defn escape-dialog
-  [pc mons dd ^SGPane p ^SGKeyListener kl]
-  (do
-    (. kl flush)
-    (try
-      (let [dlg
-         (dialog
-            :content (do
-                      (. kl flush)
-                       (str "YOU ESCAPED.  You explored "
-                          (count (filter true?
-                                         (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @pc))))))
-                          " squares."))
-            :success-fn (fn [jop] (System/exit 0)))]
-      (show! (pack! dlg)))
-        (catch Exception iae (println "Please, don't press the keys so fast...")))))
 
 (defn ascend
   [pc mons dd]
@@ -604,51 +380,6 @@
       (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
       )))
 
-(comment(defn move-player [pc mons dd ^SGPane p ^SGKeyListener kl newpos]
-  (do (if
-        (and (apply distinct? (conj (map (fn [atm] (:pos @atm)) @mons) newpos))
-             (or (= (aget ^doubles (:dungeon @dd) newpos) floor) (= (aget ^doubles (:dungeon @dd) newpos) 10001.0) (= (aget ^doubles (:dungeon @dd) newpos) 10002.0)))
-        (do
-          (swap! pc assoc :pos newpos)
-          (condp = (aget ^doubles (:dungeon @dd) newpos)
-            floor (do
-                    (move-monster @mons dd p)
-                    (freshen dd p))
-            10001.0 (do
-                      (. kl flush)
-                      (if (= @dlevel 0)
-                         (do
-                           (config! (acquire [:#messages]) :items (conj (config (acquire [:#messages]) :items) (make-other-message
-                             (str "YOU ESCAPED.  You explored "
-                               (count (filter true?
-                                         (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @pc))))))
-                               " squares."))))
-                           (escape-dialog pc mons dd p kl))
-                         (do (ascend pc mons dd p)
-                           (config! (acquire [:#messages]) :items (conj (config (acquire [:#messages]) :items) (make-other-message
-                             (str "YOU ASCEND TO FLOOR " (inc @dlevel) "...  You explored "
-                               (count (filter true?
-                                         (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @pc))))))
-                               " squares.")))))
-                    )) ;(show! (pack! (ascend-dialog pc mons dd p kl)))
-            10002.0 (do
-                      (. kl flush)
-                      (descend pc mons dd p)
-                      (config! (acquire [:#messages]) :items (conj (config (acquire [:#messages]) :items) (make-other-message
-                        (str "YOU DESCEND TO FLOOR " (inc @dlevel) "...  You explored "
-                          (count (filter true?
-                                         (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @pc))))))
-                           " squares.")))))
-                     ;(show! (pack! (descend-dialog pc mons dd p kl)))
-            (println "Something's wrong."))
-          )
-        (when (= (aget ^doubles (:dungeon @dd) newpos) floor)
-
-          (doseq [mon @mons] (when (= (:pos @mon) newpos)
-                                   (damage-monster mon dd p)))
-          (move-monster @mons dd p)
-          (freshen dd p))))))
-
 (defn shoot [pc mons dd target monhash]
     (let [mon-list (drop-while #(not= target (:ident @%)) @mons)]
       (when (seq mon-list)
@@ -658,7 +389,7 @@
         (move-monster @mons dd monhash))
     ))))
 
-
+(comment
 (defn show-dungeon []
 	(invoke-later
 	        (let [dd0 (prepare-bones)
@@ -692,8 +423,9 @@
               (println (apply str (map #(if (= % \#) \# \.) row))))
             (freshen2)
             )))
+)
 
-
+(comment
 (defn -main-old
 	[& args]
  ; (comment ;"Remove these semicolons to view a dungeon when you run"
@@ -768,6 +500,7 @@
   ;) ;
   ;(show-dungeon) ;
   )
+)
 
 
 

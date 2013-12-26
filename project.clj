@@ -12,7 +12,7 @@
 		             [com.badlogicgames.gdx/gdx-platform "0.9.9-SNAPSHOT" :classifier "natives-desktop"]
 
                  [hiphip-aot "0.1.1"]
-                 [seesaw "1.4.1"]
+               ;  [seesaw "1.4.1"]
                  [com.squidpony/squidlib "1.95.1"]
                  ]
   :jvm-opts ^:replace []
@@ -20,6 +20,7 @@
   :aot [dk.herringbone dk.core dk.DKGame dk.dkscreen dk.spritecore]
   :main dk.spritecore
  )
+
 
 
 
