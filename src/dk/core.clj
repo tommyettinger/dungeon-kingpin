@@ -8,14 +8,10 @@
            [java.io File])
   (:gen-class))
 
-(defmethod print-dup (Class/forName "[D") [a out] (.write out (str "#=" `(double-array ~(vec a)))))
-(defmethod print-dup (Class/forName "[C") [a out] (.write out (str "#=" `(char-array ~(vec a)))))
-(defmethod print-dup (Class/forName "[Z") [a out] (.write out (str "#=" `(boolean-array ~(vec a)))))
-
-;; (binding [*print-dup* true] (read-string (pr-str (first (prepare-bones)))))
+;; (binding [*print-dup* true] (pr-str (first (prepare-bones))))
 (set! *warn-on-reflection* true)
-(def wide 40)
-(def high 40)
+(def wide 30)
+(def high 30)
 (def ^Long iw (- wide 2)) ;inner width
 (def ^Long ih (- high 2)) ;inner height
 
@@ -27,13 +23,14 @@
 
 (def cleared-levels (atom {}))
 (def dlevel (atom 0))
+(def res (atom (make-array Float/TYPE wide high)))
 (defn ^"[Z" init-full-seen [] (let [ ^"[Z" res1d (make-array Boolean/TYPE (* wide high))]
                    (doseq [i (range (* wide high))]
                      (aset res1d i false))
                      res1d))
 
-(def player (atom {:pos 0 :show \@ :hp 99 :vision 12 :dijkstra nil :seen nil :full-seen (init-full-seen)}))
-(def monsters (atom (vec (for [i (range 1 20)] (atom {:pos 0 :show \M :hp 8 :vision 7 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
+(def player (atom {:pos 0 :show \@ :hp 99 :vision 10 :dijkstra nil :seen nil :full-seen (init-full-seen)}))
+(def monsters (atom (vec (for [i (range 1 15)] (atom {:pos 0 :show \M :hp 8 :vision 5 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
 (def ^TranslucenceWrapperFOV fov (TranslucenceWrapperFOV. ))
 
 (defn make-bones []
@@ -123,7 +120,7 @@
 
 (defn run-fov-player
   [entity dungeon]
-    (let [^"[[F" calculated (. fov calculateFOV (:res @dungeon) (mod (:pos @entity) wide) (quot (:pos @entity) wide) 1.0 (/ 1.0 (:vision @entity)) BasicRadiusStrategy/DIAMOND)]
+    (let [^"[[F" calculated (. fov calculateFOV @res (mod (:pos @entity) wide) (quot (:pos @entity) wide) 1.0 (/ 1.0 (:vision @entity)) BasicRadiusStrategy/DIAMOND)]
       (doseq [ idx (range (* wide high))]
          (aset ^"[Z" (:full-seen @entity) ^Integer idx
             (boolean (or (aget ^"[Z" (:full-seen @entity) idx)
@@ -137,7 +134,7 @@
 
 (defn run-fov
   [entity dd]
-    (let [^"[[F" calculated (. fov calculateFOV (:res @dd) (mod (:pos @entity) wide) (quot (:pos @entity) wide) 1.0 (/ 1.0 (:vision @entity)) BasicRadiusStrategy/DIAMOND)]
+    (let [^"[[F" calculated (. fov calculateFOV @res (mod (:pos @entity) wide) (quot (:pos @entity) wide) 1.0 (/ 1.0 (:vision @entity)) BasicRadiusStrategy/DIAMOND)]
       calculated)
   )
 
@@ -346,12 +343,13 @@
   (swap! dlevel dec)
   (let [
                                 dd1 (:dungeon (get @cleared-levels @dlevel))
-                                dungeon-res (:res (get @cleared-levels @dlevel))
+                                ;dungeon-res  (dungeon-resistances dd1)
                                 shown (:shown (get @cleared-levels @dlevel))
                                 player-calc  (init-dungeon dd1 pc 10002.0)
                                 monster-calc (doall (map #(do (init-dungeon dd1 %)(swap! % assoc :dijkstra nil)) @monsters))]
                             (harray/afill! boolean [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" (:full-seen (get @cleared-levels ^int @dlevel)) i))
-                            (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
+                            (reset! res (dungeon-resistances dd1))
+                            (reset! dd {:dungeon dd1 :shown shown})
                             ))
 
 (defn descend
@@ -361,23 +359,23 @@
   (if (contains? @cleared-levels @dlevel)
     (let [
       dd1 (:dungeon (get @cleared-levels @dlevel))
-      dungeon-res (:res (get @cleared-levels @dlevel))
       shown (:shown (get @cleared-levels @dlevel))
       player-calc  (init-dungeon dd1 pc 10001.0)
       monster-calc (doall (map #(do (init-dungeon dd1 %) (swap! % assoc :dijkstra nil)) @mons))]
       (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" (:full-seen (get @cleared-levels ^int @dlevel)) i))
-      (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
+      (reset! res (dungeon-resistances dd1))
+      (reset! dd {:dungeon dd1 :shown shown})
       )
     (let [
       dd0 (prepare-bones)
       dd1 (first dd0)
-      dungeon-res (dungeon-resistances dd1)
       shown (last dd0)
       player-calc  (init-dungeon dd1 pc 10001.0)
       monster-calc (doall (map #(init-dungeon dd1 %) @mons))
       blank-seen (init-full-seen)]
       (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" blank-seen i))
-      (reset! dd {:dungeon dd1 :shown shown :res dungeon-res})
+      (reset! res (dungeon-resistances dd1))
+      (reset! dd {:dungeon dd1 :shown shown})
       )))
 
 (defn shoot [pc mons dd target monhash]
