@@ -90,7 +90,11 @@
 
 
  (defn clean-bones [^doubles dd ^chars shown]
-  (map-indexed (fn [i t] (if (= t wall)
+   (let [ nu (make-array TextureAtlas$AtlasSprite (alength dd))]
+     (amap ^doubles dd i ret
+        (let [t (aget ^doubles dd i)]
+          (if (= t wall)
+    (aset ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" nu i
     (let [left  (if (> (mod i wide) 0)           (and (not= (aget dd (- i 1)) dark)    (= (aget dd (- i 1)) wall))    false)
           right (if (< (mod i wide) (dec wide))  (and (not= (aget dd (+ i 1)) dark)    (= (aget dd (+ i 1)) wall))    false)
           top   (if (> (quot i wide) 0)          (and (not= (aget dd (- i wide)) dark) (= (aget dd (- i wide)) wall)) false)
@@ -127,9 +131,10 @@
                     :else sh)
           (or top down) sv
           :else sh
-          ))
+          )))
 
-          (condp = t
+          (aset ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" nu i
+            (condp = t
                 10001.0 stairs-up
                 10002.0 stairs-down
             (condp = (aget shown i)
@@ -138,8 +143,10 @@
                    \$ statue
                    \+ ice ; stones
                    \% leaf
-                   gr))
-        )) (vec dd)))
+                   gr)))
+        )
+          0.0))
+     nu))
 
    (if (.exists (io/file "Savefile.edn"))
      (let [
@@ -158,7 +165,7 @@
          (def dd dd1)
          (def dun (atom {:dungeon dd :shown shown}))
          (def colors (mapv (fn [_] (Color. (- 1.0 (* 0.0007 (rand-int 50))) (- 1.0 (* 0.0007 (rand-int 50))) (- 1.0 (* 0.0007 (rand-int 50))) 1.0)) (range (* wide high))))
-         (def cleaned (atom(clean-bones dd shown)))
+         (def cleaned (clean-bones dd shown))
 
 ;         (init-dungeon dd player)
 ;         (swap! player assoc :seen (run-fov-player player dun))
@@ -176,7 +183,7 @@
          (def dd dd1)
          (def dun (atom {:dungeon dd :shown shown}))
          (def colors (mapv (fn [_] (Color. (- 1.0 (* 0.0007 (rand-int 50))) (- 1.0 (* 0.0007 (rand-int 50))) (- 1.0 (* 0.0007 (rand-int 50))) 1.0)) (range (* wide high))))
-         (def cleaned (atom(clean-bones dd shown)))
+         (def cleaned (clean-bones dd shown))
 
          (init-dungeon dd player)
          (swap! player assoc :seen (run-fov-player player dun))
@@ -214,7 +221,7 @@
   (.begin ^SpriteBatch batch)
   (doseq [y (range high)]
   (doseq [x (range wide)]
-    (let [is-seen (aget seen x y) idx (+ (* y wide) x) c (nth @cleaned idx)] ; x (mod idx wide) y (quot idx wide)
+    (let [is-seen (aget seen x y) idx (+ (* y wide) x) c (aget ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned idx)] ; x (mod idx wide) y (quot idx wide)
      (when
         (and (< (Math/abs (- (+ (* 32.0 (mod (:pos @player) wide)) (* 16.0 (- wide (quot (:pos @player) wide))))
                              (+ (* 32.0 x) (* 16 (- wide y))))) (+ 48 (/ @screen-width 2)))
@@ -232,7 +239,7 @@
       )
     )
   (doseq [x (range wide)]
-    (let [is-seen (aget seen x y) idx (+ (* y wide) x) c (nth @cleaned idx)] ; x (mod idx wide) y (quot idx wide)
+    (let [is-seen (aget seen x y) idx (+ (* y wide) x) c (aget ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned idx)] ; x (mod idx wide) y (quot idx wide)
       (when
         (and (< (Math/abs (- (+ (* 32.0 (mod (:pos @player) wide)) (* 16.0 (- wide (quot (:pos @player) wide))))
                              (+ (* 32.0 x) (* 16 (- wide y))))) (+ 24 (/ @screen-width 2)))
@@ -245,7 +252,7 @@
 
         (if (or (> is-seen 0) (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))) (do (when (or (>= (nth (:dungeon @dun) idx) wall) (= c statue) (= c stones) (= c leaf))
 
-                                                                            (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite (nth @cleaned idx)
+                                                                            (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite (aget ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned idx)
                                                                                 (+ (* 32.0 x) (* 16 (- wide y)))
                                                                                 (- @screen-height 64.0 (* 32 y))))))
         ;█ ∫
@@ -263,7 +270,7 @@
           (.setColor ^SpriteBatch batch 1.0 1.0 1.0 1.0)
           (.draw ^SpriteBatch batch ^Sprite health-red (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32.0 y)) 20.0 20.0)
           (.setColor ^SpriteBatch batch 0.1 1.0 0.4 1.0)
-          (.draw ^SpriteBatch batch ^Sprite (nth health (quot 20 (/ 99 (:hp @player)))) (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32.0 y)))
+          (.draw ^SpriteBatch batch ^Sprite (nth health (quot 20 (/ 300 (:hp @player)))) (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32.0 y)))
           ;region.setV(originalRegion.getV() + health * (originalRegion.getV2() - originalRegion.getV()));
           ;(.setV ^Sprite health (float (- 1.0 hp))) ; (float (- 1.0 hp)) ; (Sprite healthMeter).setV(1.0 - (1.0 / (99 / currentHP)));  (SpriteBatch batch).draw(healthMeter, healthX, healthY, 20.0, 20.0 * (currentHP / 99);
           ; (SpriteBatch batch).draw(healthMeter, healthX, healthY, 20.0, 20.0 * (currentHP / 99)
@@ -294,7 +301,9 @@
                                          (vec (concat (flatten (map #(vec (:full-seen (val %))) (dissoc @cleared-levels @dlevel))) (vec (:full-seen @pc))))))
                                " squares."))
                             (do (ascend pc mons dd)
-                              (reset! cleaned (clean-bones (:dungeon @dd) (:shown @dd)))
+                              (let [nu (clean-bones (:dungeon @dd) (:shown @dd))]
+                                (amap ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned i ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" ret
+                                      (aset ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned i (aget ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" nu i))))
                               (reset! monster-hash (into {} (map (fn [entry] [(:pos @entry) entry]) @monsters)))
                               (update-fov dd)
                               (refresher)
@@ -306,7 +315,9 @@
                     ))
             10002.0 (do
                       (descend pc mons dd)
-                      (reset! cleaned (clean-bones (:dungeon @dd) (:shown @dd)))
+                      (let [nu (clean-bones (:dungeon @dd) (:shown @dd))]
+                        (amap ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned i ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" ret
+                              (aset ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned i (aget ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" nu i))))
                       (reset! monster-hash (into {} (map (fn [entry] [(:pos @entry) entry]) @monsters)))
                       (update-fov dd)
                       (refresher)
