@@ -10,8 +10,8 @@
 
 ;; (binding [*print-dup* true] (pr-str (first (prepare-bones))))
 (set! *warn-on-reflection* true)
-(def wide 30)
-(def high 30)
+(def wide 42)
+(def high 42)
 (def ^Long iw (- wide 2)) ;inner width
 (def ^Long ih (- high 2)) ;inner height
 
@@ -29,15 +29,15 @@
                      (aset res1d i false))
                      res1d))
 
-(def player (atom {:pos 0 :show \@ :hp 99 :vision 10 :dijkstra nil :seen nil :full-seen (init-full-seen)}))
-(def monsters (atom (vec (for [i (range 1 15)] (atom {:pos 0 :show \M :hp 8 :vision 5 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
+(def player (atom {:pos 0 :show \@ :hp 300 :vision 10 :dijkstra nil :seen nil :full-seen (init-full-seen)}))
+(def monsters (atom (vec (for [i (range 1 25)] (atom {:pos 0 :show \M :hp 8 :vision 5 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
 (def ^TranslucenceWrapperFOV fov (TranslucenceWrapperFOV. ))
 
 (defn make-bones []
   (let [seed (rand-int (count horiz))
         initial (horiz seed)
-        hvec (map #(map (fn [s] (vec s)) %) horiz)
-        vvec (map #(map (fn [s] (vec s)) %) vert)
+        hvec (mapv #(mapv vec %) horiz)
+        vvec (mapv #(mapv vec %) vert)
         oh (+ 20 ih)
         ow (+ 20 iw)
         initial (hiphip/amake [i (* ow oh)] wall)
@@ -46,7 +46,7 @@
       (if (>= (+ (* 10 ow ) next-fill) (* ow oh))
           initial
           (let [hofull (rand-nth hvec)
-                    ho (vec (map #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) hofull))]
+                    ho (mapv #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) hofull)]
             (when (< (+ (* 10 ow) 20 next-fill) (* ow oh))
                 (doseq [nf (range 10)]
                                          (hiphip/afill! [[i eh] initial :range [(+ (* ow nf) next-fill) (+ 20 (* ow nf) next-fill)]]
@@ -71,7 +71,7 @@
       (if (>= (+ 10 (mod next-fill ow)) ow)
           initial
         (let [vefull (rand-nth vvec)
-                    ve (vec (map #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) vefull))]
+                    ve (mapv #(replace {\# wall \. floor \$ floor \~ floor \% floor \+ floor} %) vefull)]
                 (when (< (+ (* 19 ow) 10 next-fill) (* ow oh))
                   (doseq [nf (range 20)] (hiphip/afill! [[i eh] initial :range [(+ (* ow nf) next-fill) (+ 10 (* ow nf) next-fill)]]
                                                                   (nth (nth ve nf) (- i (* ow nf) next-fill)))

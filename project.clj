@@ -13,9 +13,10 @@
 
                  [hiphip-aot "0.1.1"]
                ;  [seesaw "1.4.1"]
-                 [com.squidpony/squidlib "1.95.1"]
+                 [com.squidpony/squidlib "1.95"]
                  ]
   :jvm-opts ^:replace []
+  :javac-options ["-target" "1.6" "-source" "1.6"]
 ;  :aot [dk.herringbone dk.weapons dk.combat dk.core]
   :aot [dk.herringbone dk.core dk.DKGame dk.dkscreen dk.spritecore]
   :main dk.spritecore
