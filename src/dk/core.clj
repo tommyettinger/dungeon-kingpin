@@ -171,11 +171,6 @@
     (persistent! (areduce ^doubles a i ret (transient {})
                           (if (= (aget ^doubles a i) cell-kind) (assoc! ret i cell-kind) ret))))
 
-(comment
-(defn find-cells [a cell-kind]
-  (let [dngn (vec a)]
-  	  (into {} (for [x (keep-indexed #(if (= %2 cell-kind) %1) dngn)] [x cell-kind])))))
-
 (defn find-goals [^doubles a]
   (find-cells a GOAL))
 
@@ -183,46 +178,77 @@
     (persistent! (areduce ^doubles a i ret (transient {})
                           (if (>= (aget ^doubles a i) wall) (assoc! ret i wall) ret))))
 
-(comment
-(defn find-walls [a]
-  (let [dngn (vec a)]
-  	  (into {} (for [x (keep-indexed #(if (>= %2 wall) %1) dngn)] [x wall])))))
-
 (defn find-floors [^doubles a]
   (find-cells a floor))
 
 (defn find-lowest [^doubles a]
-  (let [low-val (apply min (vec a))]
+  (let [low-val (hiphip/amin a)]
     (find-cells a low-val)))
 
 (defn find-monsters [m]
     (into {} (for [mp (map #(:pos @%) m)] [mp wall])))
 
-(def open (atom {}))
-
 (defn dijkstra
   ([a]
-     (do (dijkstra a (find-walls a) (find-lowest a))))
+     (dijkstra a (find-walls a) (find-lowest a)))
   ([a ent]
-     (do (dijkstra a (dissoc (merge (find-walls a) (find-monsters @monsters)) (:pos @ent)) (find-lowest a))))
+     (dijkstra a (dissoc (merge (find-walls a) (find-monsters @monsters)) (:pos @ent)) (find-lowest a)))
   ([a closed open-cells]
-     (reset! open open-cells)
-     (while (not (empty? @open))
-     	     (let [newly-open (atom {})]
-     	     (doall (for [[i v] @open]
-    			  (let [n (- i wide)
-    			        s (+ i wide)
-    			        w (- i 1 )
-    			        e (+ i 1 )
-    			        ]
-    			        (if (or (closed n) (@open n) (>= (inc v) (hiphip/aget a n))) nil (do (hiphip/aset a n (inc v)) (swap! newly-open assoc n (inc v))))
-    			        (if (or (closed s) (@open s) (>= (inc v) (hiphip/aget a s))) nil (do (hiphip/aset a s (inc v)) (swap! newly-open assoc s (inc v))))
-    			        (if (or (closed w) (@open w) (>= (inc v) (hiphip/aget a w))) nil (do (hiphip/aset a w (inc v)) (swap! newly-open assoc w (inc v))))
-    			        (if (or (closed e) (@open e) (>= (inc v) (hiphip/aget a e))) nil (do (hiphip/aset a e (inc v)) (swap! newly-open assoc e (inc v))))
-     	     	     	     )))
-     	     (reset! open @newly-open)))
-       a
-       ))
+     (loop [open open-cells]
+       (when (seq open)
+         (recur (reduce (fn [newly-open [i v]]
+                          (reduce (fn [acc dir]
+                                    (if (or (closed dir) (open dir)
+                                            (>= (inc v) (hiphip/aget a dir)))
+                                      acc
+                                      (do (hiphip/aset a dir (inc v))
+                                          (assoc acc dir (inc v)))))
+                                  newly-open, [(- i wide)
+                                               (+ i wide)
+                                               (- i 1)
+                                               (+ i 1)]))
+                        {}, open))))
+     a))
+
+(defn local-dijkstra
+  ([a center radius]
+     (local-dijkstra a (find-walls a) {center 0} center radius))
+  ([a ent center radius]
+     (local-dijkstra a (dissoc (merge (find-walls a) (find-monsters @monsters)) (:pos @ent)) {center 0} center radius))
+  ([a closed open-cells center radius]
+     (loop [open open-cells res (transient {}) ctr 0]
+       (if (and (seq open) (< ctr radius))
+         (recur (reduce (fn [newly-open [i v]]
+                          (reduce (fn [acc dir]
+                                    (if (or (closed dir) (open dir)
+                                            (>= (inc v) (get res dir 22222.0)))
+                                      acc
+                                      (do (assoc! res dir (inc v))
+                                          (assoc acc dir (inc v)))))
+                                  newly-open, [(- i wide)
+                                               (+ i wide)
+                                               (- i 1)
+                                               (+ i 1)]))
+                        {}, open) res (inc ctr))
+         (persistent! res)))
+     ))
+
+(defn init-ambush-entity [dngn entity choke] (loop [ctr 0] (if (>= ctr 1) dngn (let [rand-loc (rand-int (* iw ih))] (if (and
+                                                                                    (apply distinct? (concat (filter (complement nil?)
+                                                                                                             (map (fn [atm] (if (= (:pos @atm) 0) nil (:pos @atm))) @monsters))
+                                                                                                        [rand-loc (:pos @player)]))
+                                                                                                 (<= (hiphip/aget choke rand-loc) 11))
+			                                                        (recur (do
+                                                                       (swap! entity assoc :pos rand-loc)
+                                                                       ;(when (= \# (aget ^chars shown (:pos @entity)))
+                                                                       ;   (println "Monster intersecting with wall"))
+
+                                                                       (inc ctr)))
+                                                              (if (>= ctr 25) dngn (recur ctr)))))))
+(defn init-monsters
+  [dungeon mons]
+  (let [chokepoints (amap dungeon idx _ (double (if (>= (aget dungeon idx) wall) wall (reduce (fn [base [k v]] (+ base v)) 0 (local-dijkstra dungeon idx 2)))))]
+    (mapv #(init-ambush-entity dungeon % chokepoints) @monsters)))
 
 (defn prepare-bones []
          (let [dungeon-z (make-bones)
@@ -240,10 +266,11 @@
                                                                     (alter-dungeon (dijkstra (init-dungeon start)) shown 10002.0 \> #(and (> % (/ (+ wide high) 4)) (< % floor)))))
                                                                 shown]
                                     (let [d0 (make-bones)
-                                          d2 (double-array (map #(if (< % wall) floor %) (replace {floor dark} (vec (dijkstra (first d0))))))
-                                          d3 (init-dungeon d2)
+                                          d_ (first d0)
+                                          _  (init-dungeon d_)
+                                          d2 (double-array (map #(if (< % wall) floor %) (replace {floor dark} (vec (dijkstra d_)))))
                                           w2 (apply max (filter (partial > wall) (vec (dijkstra (hiphip/aclone d2)))))]
-                                      (recur d3 w2 (harray/afill! char [[i x] ^chars (last d0)] (if (= (aget ^doubles d3 i) wall) \# x))))))))
+                                      (recur d2 w2 (harray/afill! char [[i x] ^chars (second d0)] (if (= (aget ^doubles d2 i) wall) \# x))))))))
 
 (defn damage-player
   ([entity dd]
@@ -346,7 +373,8 @@
                                 ;dungeon-res  (dungeon-resistances dd1)
                                 shown (:shown (get @cleared-levels @dlevel))
                                 player-calc  (init-dungeon dd1 pc 10002.0)
-                                monster-calc (doall (map #(do (init-dungeon dd1 %)(swap! % assoc :dijkstra nil)) @monsters))]
+                                _ (init-monsters dd1 @mons)]
+;monster-calc (doall (map #(do (init-dungeon dd1 %)(swap! % assoc :dijkstra nil)) @monsters))]
                             (harray/afill! boolean [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" (:full-seen (get @cleared-levels ^int @dlevel)) i))
                             (reset! res (dungeon-resistances dd1))
                             (reset! dd {:dungeon dd1 :shown shown})
@@ -361,7 +389,9 @@
       dd1 (:dungeon (get @cleared-levels @dlevel))
       shown (:shown (get @cleared-levels @dlevel))
       player-calc  (init-dungeon dd1 pc 10001.0)
-      monster-calc (doall (map #(do (init-dungeon dd1 %) (swap! % assoc :dijkstra nil)) @mons))]
+      _ (init-monsters dd1 @mons)
+          ]
+          ;monster-calc (doall (map #(do (init-dungeon dd1 %) (swap! % assoc :dijkstra nil)) @mons))]
       (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" (:full-seen (get @cleared-levels ^int @dlevel)) i))
       (reset! res (dungeon-resistances dd1))
       (reset! dd {:dungeon dd1 :shown shown})
@@ -371,7 +401,9 @@
       dd1 (first dd0)
       shown (last dd0)
       player-calc  (init-dungeon dd1 pc 10001.0)
-      monster-calc (doall (map #(init-dungeon dd1 %) @mons))
+      _ (init-monsters dd1 @mons)
+
+          ;monster-calc (doall (map #(init-dungeon dd1 %) @mons))
       blank-seen (init-full-seen)]
       (harray/afill! Boolean/TYPE [[i x] ^"[Z" (:full-seen @pc)] (aget ^"[Z" blank-seen i))
       (reset! res (dungeon-resistances dd1))

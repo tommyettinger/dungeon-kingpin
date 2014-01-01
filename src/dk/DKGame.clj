@@ -187,7 +187,7 @@
 
          (init-dungeon dd player)
          (swap! player assoc :seen (run-fov-player player dun))
-         (doall (map #(init-dungeon dd %) @monsters))
+         (init-monsters dd @monsters)
          (doall (map #(swap! % assoc :tile (rand-int (count monster-tiles))) @monsters))
          (def monster-hash (atom(into {} (map (fn [entry] [(:pos @entry) entry]) @monsters))))
          ))
@@ -401,6 +401,7 @@
 ;  (doto stage
  ;       (.act delta)
   ;      (.draw))
+
 
 
 
