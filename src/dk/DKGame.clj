@@ -229,7 +229,7 @@
                              (- @screen-height 64 (* 32 y)))) (+ 64 (/ @screen-height 2)))
              )
       ;  (<= (+ (Math/abs ^int (- (mod (:pos @player) wide) x)) (Math/abs ^int (- (quot (:pos @player) wide) y))) 13)
-        (.setColor ^SpriteBatch batch ^Color (nth colors idx)) ; ^TextureAtlas$AtlasSprite %2
+        (.setColor ^SpriteBatch batch ^Color (let [^Color c (nth colors idx)] (set! (.a ^Color c) (float 1.0)) ^Color c)) ; (.setColor ^SpriteBatch batch ^Color (nth colors idx))
         (if (or (> is-seen 0) (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))) (when (not= (nth (:dungeon @dun) idx) wall)
                                                                               (.draw ^SpriteBatch batch (if (or (= c ice) (= c water)) ^TextureAtlas$AtlasSprite c ^TextureAtlas$AtlasSprite gr)
                                                                                   (+ (* 32.0 x) (* 16 (- wide y)))
@@ -247,7 +247,7 @@
                              (- @screen-height 64.0 (* 32 y)))) (+ 64 (/ @screen-height 2)))
              )
       ;  (<= (+ (Math/abs ^int (- (mod (:pos @player) wide) x)) (Math/abs ^int (- (quot (:pos @player) wide) y))) 13)
-        (.setColor ^SpriteBatch batch ^Color (nth colors idx))
+        (.setColor ^SpriteBatch batch ^Color (let [^Color c (nth colors idx)] (set! (.a ^Color c) (float 1.0)) ^Color c))
         ; ^TextureAtlas$AtlasSprite %2
 
         (if (or (> is-seen 0) (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))) (do (when (or (>= (nth (:dungeon @dun) idx) wall) (= c statue) (= c stones) (= c leaf))
@@ -257,6 +257,7 @@
                                                                                 (- @screen-height 64.0 (* 32 y))))))
         ;█ ∫
         (when (and (> is-seen 0) (contains? @monster-hash idx))
+          (.setColor ^SpriteBatch batch ^Color (let [^Color c (nth colors idx)] (set! (.a ^Color c) (float 1.0)) ^Color c))
           (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite (nth monster-tiles (:tile @(get @monster-hash idx))) (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height 64.0 (* 32 y)))
           (.setColor ^SpriteBatch batch 1.0 1.0 1.0 1.0)
           (.draw ^SpriteBatch batch ^Sprite health-red (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32.0 y)))
@@ -265,7 +266,7 @@
           ;(.draw ^BitmapFont mandrill-16-red ^SpriteBatch batch (str (:hp @(get @monster-hash idx))) (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32 y)))
           )
         (when (and (= idx (:pos @player)) (> (:hp @player) 0))
-          (.setColor ^SpriteBatch batch ^Color (nth colors idx))
+          (.setColor ^SpriteBatch batch ^Color (let [^Color c (nth colors idx)] (set! (.a ^Color c) (float 1.0)) ^Color c)) ;(.setColor ^SpriteBatch batch ^Color (nth colors idx))
           (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite nucky (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height 64 (* 32.0 y)))
           (.setColor ^SpriteBatch batch 1.0 1.0 1.0 1.0)
           (.draw ^SpriteBatch batch ^Sprite health-red (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32.0 y)) 20.0 20.0)
@@ -401,6 +402,7 @@
 ;  (doto stage
  ;       (.act delta)
   ;      (.draw))
+
 
 
 

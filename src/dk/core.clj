@@ -10,8 +10,8 @@
 
 ;; (binding [*print-dup* true] (pr-str (first (prepare-bones))))
 (set! *warn-on-reflection* true)
-(def wide 42)
-(def high 42)
+(def wide 43)
+(def high 33)
 (def ^Long iw (- wide 2)) ;inner width
 (def ^Long ih (- high 2)) ;inner height
 
@@ -138,9 +138,9 @@
       calculated)
   )
 
-(defn init-dungeon ([dngn] (loop [ctr 0] (if (>= ctr  1) dngn (let [rand-loc (rand-int (* iw ih))] (if (= (hiphip/aget dngn rand-loc) floor)
+(defn init-dungeon ([dngn] (loop [ctr 0] (if (>= ctr  1) (hiphip/aclone dngn) (let [rand-loc (rand-int (* wide high))] (if (= (hiphip/aget dngn rand-loc) floor)
 			                                                        (recur (do (hiphip/aset dngn rand-loc GOAL) (inc ctr))) (recur ctr))))))
-  ([dngn entity] (loop [ctr 0] (if (>= ctr 1) dngn (let [rand-loc (rand-int (* iw ih))] (if (and
+  ([dngn entity] (loop [ctr 0] (if (>= ctr 1) dngn (let [rand-loc (rand-int (* wide high))] (if (and
                                                                                     (apply distinct? (concat (filter (complement nil?)
                                                                                                              (map (fn [atm] (if (= (:pos @atm) 0) nil (:pos @atm))) @monsters))
                                                                                                         [rand-loc (:pos @player)]))
@@ -160,10 +160,10 @@
 			                                                        (recur (do (swap! entity assoc :pos rand-loc) (inc ctr))) (recur ctr)))))))
 
 (defn alter-dungeon
-  ([dngn cell] (loop [ctr 0] (if (>= ctr  1) dngn (let [rand-loc (rand-int (* iw ih))]
+  ([dngn cell] (loop [ctr 0] (if (>= ctr  1) dngn (let [rand-loc (rand-int (* wide high))]
                                                     (if (= (hiphip/aget dngn rand-loc) floor)
 			                                                        (recur (do (hiphip/aset dngn rand-loc cell) (inc ctr))) (recur ctr))))))
-  ([dngn shown cell shown-cell filt] (loop [ctr 0] (if (>= ctr  1) dngn (let [rand-loc (rand-int (* iw ih))]
+  ([dngn shown cell shown-cell filt] (loop [ctr 0] (if (>= ctr  1) dngn (let [rand-loc (rand-int (* wide high))]
                                                          (if (filt (hiphip/aget ^doubles dngn rand-loc))
 			                                                        (recur (do (aset ^chars shown ^int rand-loc ^char shown-cell) (hiphip/aset ^doubles dngn rand-loc cell) (inc ctr))) (recur ctr)))))))
 
@@ -216,24 +216,24 @@
   ([a ent center radius]
      (local-dijkstra a (dissoc (merge (find-walls a) (find-monsters @monsters)) (:pos @ent)) {center 0} center radius))
   ([a closed open-cells center radius]
-     (loop [open open-cells res (transient {}) ctr 0]
+     (loop [open open-cells result (transient {}) ctr 0]
        (if (and (seq open) (< ctr radius))
          (recur (reduce (fn [newly-open [i v]]
                           (reduce (fn [acc dir]
                                     (if (or (closed dir) (open dir)
-                                            (>= (inc v) (get res dir 22222.0)))
+                                            (>= (inc v) (get result dir 22222.0)))
                                       acc
-                                      (do (assoc! res dir (inc v))
+                                      (do (assoc! result dir (inc v))
                                           (assoc acc dir (inc v)))))
                                   newly-open, [(- i wide)
                                                (+ i wide)
                                                (- i 1)
                                                (+ i 1)]))
-                        {}, open) res (inc ctr))
-         (persistent! res)))
+                        {}, open) result (inc ctr))
+         (persistent! result)))
      ))
 
-(defn init-ambush-entity [dngn entity choke] (loop [ctr 0] (if (>= ctr 1) dngn (let [rand-loc (rand-int (* iw ih))] (if (and
+(defn init-ambush-entity [dngn entity choke] (loop [ctr 0] (if (>= ctr 1) dngn (let [rand-loc (rand-int (* wide high))] (if (and
                                                                                     (apply distinct? (concat (filter (complement nil?)
                                                                                                              (map (fn [atm] (if (= (:pos @atm) 0) nil (:pos @atm))) @monsters))
                                                                                                         [rand-loc (:pos @player)]))
@@ -247,30 +247,33 @@
                                                               (if (>= ctr 25) dngn (recur ctr)))))))
 (defn init-monsters
   [dungeon mons]
-  (let [chokepoints (amap dungeon idx _ (double (if (>= (aget dungeon idx) wall) wall (reduce (fn [base [k v]] (+ base v)) 0 (local-dijkstra dungeon idx 2)))))]
+  (let [chokepoints (amap ^doubles dungeon idx _ (double (if (>= (aget ^doubles dungeon idx) wall) wall (reduce (fn [base [k v]] (+ base v)) 0 (local-dijkstra ^doubles dungeon idx 2)))))]
     (mapv #(init-ambush-entity dungeon % chokepoints) @monsters)))
 
 (defn prepare-bones []
          (let [dungeon-z (make-bones)
                dungeon (first dungeon-z)
-               dngn-eh (init-dungeon dungeon)]
+               dngn-clone (init-dungeon dungeon)]
                       (loop [
-                          start (double-array (map #(if (< % wall) floor %) (replace {floor dark} (vec (dijkstra dungeon)))))
-                          worst (apply max (filter (partial > wall) (vec (dijkstra (hiphip/aclone start)))))
-                          shown (last dungeon-z)]
-                        (if (> worst (/ (+ wide high) 4))
-
-                            [(double-array (map-indexed #(if (= %2 GOAL)
+                          start   (double-array (map #(if (< % wall) floor %) (replace {floor dark} (vec (dijkstra dungeon)))))
+                          scanned dngn-clone
+                          worst   (apply max (filter (partial > floor) (vec (dijkstra (hiphip/aclone dngn-clone)))))
+                          shown   (second dungeon-z)]
+                       ; (println (str "In loop, worst is " worst
+                        ;              "\nstart is \n" (clojure.string/join "\n" (for [l (partition wide start)] (apply str (mapv {wall \# dark \space floor \. GOAL \@ 10001.0 \< 10002.0 \>} l))))
+                         ;             "\n\nclone is \n" (clojure.string/join "\n" (for [l (partition wide scanned)]  (apply str (mapv {wall \# dark \space floor \. GOAL \@ 10001.0 \< 10002.0 \>} l))))))
+                        (if (and (< worst floor) (> worst (/ (+ wide high) 4)))
+                              [(double-array (map-indexed #(if (= %2 GOAL)
                                                                        (do (aset ^chars shown %1 \<) 10001.0)
                                                                        (if (< %2 wall) floor %2))
-                                                                    (alter-dungeon (dijkstra (init-dungeon start)) shown 10002.0 \> #(and (> % (/ (+ wide high) 4)) (< % floor)))))
+                                                                    (alter-dungeon (dijkstra scanned) shown 10002.0 \> #(and (>= % (/ (+ wide high) 4)) (< % floor)))))
                                                                 shown]
                                     (let [d0 (make-bones)
                                           d_ (first d0)
-                                          _  (init-dungeon d_)
+                                          d1 (init-dungeon d_)
                                           d2 (double-array (map #(if (< % wall) floor %) (replace {floor dark} (vec (dijkstra d_)))))
-                                          w2 (apply max (filter (partial > wall) (vec (dijkstra (hiphip/aclone d2)))))]
-                                      (recur d2 w2 (harray/afill! char [[i x] ^chars (second d0)] (if (= (aget ^doubles d2 i) wall) \# x))))))))
+                                          w2 (apply max (filter (partial > wall) (vec (dijkstra (hiphip/aclone d1)))))]
+                                      (recur d2 d1 w2 (harray/afill! char [[i x] ^chars (second d0)] (if (= (aget ^doubles d2 i) wall) \# x))))))))
 
 (defn damage-player
   ([entity dd]
@@ -531,6 +534,7 @@
   ;(show-dungeon) ;
   )
 )
+
 
 
 
