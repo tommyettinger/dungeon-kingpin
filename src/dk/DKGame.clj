@@ -33,12 +33,19 @@
 (declare cw) ; crosswall
 (declare Tu) (declare Td) (declare Tl) (declare Tr) ; T-shaped up/down/left/right
 
+(declare dun)
+(defn -dispose [^Game this]
+  (if (> (:hp @player) 0)
+      (binding [*print-dup* true] (spit "Savefile.edn" (pr-str [wide high (:dungeon @dun) (:shown @dun) @cleared-levels @dlevel @player (mapv deref @monsters)])))
+      (io/delete-file "Savefile.edn" true)))
 
 (defn -create [^Game this]
    ;(.setContinuousRendering Gdx/graphics false)
    ;(.requestRendering Gdx/graphics)
    (def screen-width  (atom 1200.0))
    (def screen-height (atom 640.0))
+  ; (.setDisplayMode Gdx/graphics (.width (.getDesktopDisplayMode Gdx/graphics)), (.height (.getDesktopDisplayMode Gdx/graphics)) true)
+
    (def ^BitmapFont mandrill-16 (BitmapFont. (.internal ^Files Gdx/files "Mandrill-16-mono.fnt") false))
    (.setColor ^BitmapFont mandrill-16 0.0 1.0 0.3 1.0)
    (def ^BitmapFont mandrill-16-red (BitmapFont. (.internal ^Files Gdx/files "Mandrill-16-mono.fnt") false))
@@ -356,6 +363,7 @@
       Input$Keys/NUM_7 (do (damage-player player dun 77) (refresher) (update-fov dun) (center-camera))
       Input$Keys/NUM_8 (do (damage-player player dun 88) (refresher) (update-fov dun) (center-camera))
       Input$Keys/NUM_9 (do (damage-player player dun 99) (refresher) (update-fov dun) (center-camera))
+      Input$Keys/Q     (do (-dispose this)  (System/exit 0))
                                  true)
             true))
    (keyUp [this keycode] false)
@@ -394,10 +402,6 @@
   (refresher)
   (center-camera))
 
-(defn -dispose [^Game this]
-  (if (> (:hp @player) 0)
-      (binding [*print-dup* true] (spit "Savefile.edn" (pr-str [wide high (:dungeon @dun) (:shown @dun) @cleared-levels @dlevel @player (mapv deref @monsters)])))
-      (io/delete-file "Savefile.edn" true)))
 
 ;  (doto stage
  ;       (.act delta)
