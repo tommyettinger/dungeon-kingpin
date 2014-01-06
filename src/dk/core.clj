@@ -29,7 +29,7 @@
                      (aset res1d i false))
                      res1d))
 
-(def player (atom {:pos 0 :show \@ :hp 300 :vision 8 :dijkstra nil :seen nil :full-seen (init-full-seen)}))
+(def player (atom {:pos 0 :show \@ :hp 300 :vision 8 :dijkstra nil :fov nil :full-seen (init-full-seen)}))
 (def monsters (atom (vec (for [i (range 1 25)] (atom {:pos 0 :show \M :hp 8 :vision 7 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
 (def ^TranslucenceWrapperFOV fov (TranslucenceWrapperFOV. ))
 (def ^EliasLOS los (EliasLOS. ))
@@ -438,7 +438,7 @@
     (let [mon-list (drop-while #(not= target (:ident @%)) @mons)]
       (when (seq mon-list)
         (let [tgt (first mon-list)]
-      (when (> (aget (:seen @pc) (mod (:pos @tgt) wide) (quot (:pos @tgt) wide)) 0)
+      (when (> (aget (:fov @pc) (mod (:pos @tgt) wide) (quot (:pos @tgt) wide)) 0)
         (damage-monster tgt dd monhash 1 2)
         (move-monster @mons dd monhash))
     ))))
@@ -491,7 +491,7 @@
                 player-calc  (init-dungeon dd player)
                 monster-calc (doall (map #(init-dungeon dd %) @monsters))
                 dun (atom {:dungeon dd :shown shown :res dungeon-res})
-                player-fov-first (swap! player assoc :seen (run-fov-player player dun))
+                player-fov-first (swap! player assoc :fov (run-fov-player player dun))
                 ^SGKeyListener kl (SGKeyListener. true SGKeyListener$CaptureType/DOWN)
                 ^SGKeyListener kl-up (SGKeyListener. true SGKeyListener$CaptureType/UP)
                 p (pane)
@@ -555,6 +555,7 @@
   ;(show-dungeon) ;
   )
 )
+
 
 
 

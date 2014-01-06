@@ -44,6 +44,8 @@
    ;(.requestRendering Gdx/graphics)
    (def screen-width  (atom 1200.0))
    (def screen-height (atom 640.0))
+   (def mode (atom :act)) ;; :look
+   (def cursor (atom 0))
   ; (.setDisplayMode Gdx/graphics (.width (.getDesktopDisplayMode Gdx/graphics)), (.height (.getDesktopDisplayMode Gdx/graphics)) true)
 
    (def ^BitmapFont mandrill-16 (BitmapFont. (.internal ^Files Gdx/files "Mandrill-16-mono.fnt") false))
@@ -175,7 +177,7 @@
          (def cleaned (clean-bones dd shown))
 
 ;         (init-dungeon dd player)
-;         (swap! player assoc :seen (run-fov-player player dun))
+;         (swap! player assoc :fov (run-fov-player player dun))
 ;         (doall (map #(init-dungeon dd %) @monsters))
 ;         (doall (map #(swap! % assoc :tile (rand-int (count monster-tiles))) @monsters))
          (def monster-hash (atom(into {} (map (fn [entry] [(:pos @entry) entry]) @monsters))))
@@ -193,15 +195,15 @@
          (def cleaned (clean-bones dd shown))
 
          (init-dungeon dd player)
-         (swap! player assoc :seen (run-fov-player player dun))
+         (swap! player assoc :fov (run-fov-player player dun))
          (init-monsters dd @monsters)
          (doall (map #(swap! % assoc :tile (rand-int (count monster-tiles))) @monsters))
          (def monster-hash (atom(into {} (map (fn [entry] [(:pos @entry) entry]) @monsters))))
          ))
    (defn update-fov [dun]
-         (swap! player assoc :seen (run-fov-player player dun))
-         (doall (map-indexed #(let [x (mod %1 wide) y (quot %1 wide)] (Color/rgb888ToColor %2 (.getRGB ^SColor (if (> (aget (:seen @player) x y) 0)
-                                                                           (SColorFactory/blend SColor/BLACK SColor/CREAM (aget (:seen @player) x y))
+         (swap! player assoc :fov (run-fov-player player dun))
+         (doall (map-indexed #(let [x (mod %1 wide) y (quot %1 wide)] (Color/rgb888ToColor %2 (.getRGB ^SColor (if (> (aget (:fov @player) x y) 0)
+                                                                           (SColorFactory/blend SColor/BLACK SColor/CREAM (aget (:fov @player) x y))
                                                                            (if
                                                                              (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))
                                                                                SColor/GRAY
@@ -218,7 +220,8 @@
 
 (defn refresher []
   (let [gl (.getGL10 Gdx/graphics)
-        seen (:seen @player)]
+        seen (:fov @player)
+        looking? (= @mode :look)]
 	(.glClear gl GL10/GL_COLOR_BUFFER_BIT);
   (.glViewport gl (int (.x ^Rectangle @glViewport)) (int (.y ^Rectangle @glViewport)) (int (.width ^Rectangle @glViewport)), (int (.height ^Rectangle @glViewport)))
   (.update ^OrthographicCamera camera)
@@ -236,7 +239,7 @@
                              (- @screen-height 64 (* 32 y)))) (+ 64 (/ @screen-height 2)))
              )
       ;  (<= (+ (Math/abs ^int (- (mod (:pos @player) wide) x)) (Math/abs ^int (- (quot (:pos @player) wide) y))) 13)
-        (.setColor ^SpriteBatch batch ^Color (let [^Color c (nth colors idx)] (set! (.a ^Color c) (float 1.0)) ^Color c)) ; (.setColor ^SpriteBatch batch ^Color (nth colors idx))
+        (.setColor ^SpriteBatch batch ^Color (nth colors idx))
         (if (or (> is-seen 0) (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))) (when (not= (nth (:dungeon @dun) idx) wall)
                                                                               (.draw ^SpriteBatch batch (if (or (= c ice) (= c water)) ^TextureAtlas$AtlasSprite c ^TextureAtlas$AtlasSprite gr)
                                                                                   (+ (* 32.0 x) (* 16 (- wide y)))
@@ -254,30 +257,39 @@
                              (- @screen-height 64.0 (* 32 y)))) (+ 64 (/ @screen-height 2)))
              )
       ;  (<= (+ (Math/abs ^int (- (mod (:pos @player) wide) x)) (Math/abs ^int (- (quot (:pos @player) wide) y))) 13)
-        (.setColor ^SpriteBatch batch ^Color (let [^Color c (nth colors idx)] (set! (.a ^Color c) (float 1.0)) ^Color c))
+        (.setColor ^SpriteBatch batch ^Color (nth colors idx))
         ; ^TextureAtlas$AtlasSprite %2
 
+        (if looking?
+        (if (or (> is-seen 0) (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))) (when (or (= c stones) (= c leaf))
+                                                                            (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite (aget ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned idx)
+                                                                                (+ (* 32.0 x) (* 16 (- wide y)))
+                                                                                (- @screen-height 64.0 (* 32 y))))
+                                                                      (when (or (>= (nth (:dungeon @dun) idx) wall) (= c statue))
+                                                                            (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite da
+                                                                                (+ (* 32.0 x) (* 16 (- wide y)))
+                                                                                (- @screen-height 64.0 (* 32 y)))))
         (if (or (> is-seen 0) (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))) (do (when (or (>= (nth (:dungeon @dun) idx) wall) (= c statue) (= c stones) (= c leaf))
 
                                                                             (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite (aget ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned idx)
                                                                                 (+ (* 32.0 x) (* 16 (- wide y)))
-                                                                                (- @screen-height 64.0 (* 32 y))))))
+                                                                                (- @screen-height 64.0 (* 32 y)))))))
         ;█ ∫
         (when (and (> is-seen 0) (contains? @monster-hash idx))
-          (.setColor ^SpriteBatch batch ^Color (let [^Color c (nth colors idx)] (set! (.a ^Color c) (float 1.0)) ^Color c))
+          (.setColor ^SpriteBatch batch ^Color (nth colors idx))
           (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite (nth monster-tiles (:tile @(get @monster-hash idx))) (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height 64.0 (* 32 y)))
           (.setColor ^SpriteBatch batch 1.0 1.0 1.0 1.0)
           (.draw ^SpriteBatch batch ^Sprite health-red (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32.0 y)))
-          (.setColor ^SpriteBatch batch 0.5 1.0 0.0 1.0)
+          (.setColor ^SpriteBatch batch 0.6 0.9 0.0 1.0)
           (.draw ^SpriteBatch batch ^Sprite (nth health (quot 20 (/ 8 (:hp @(get @monster-hash idx))))) (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32.0 y)))
           ;(.draw ^BitmapFont mandrill-16-red ^SpriteBatch batch (str (:hp @(get @monster-hash idx))) (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32 y)))
           )
         (when (and (= idx (:pos @player)) (> (:hp @player) 0))
-          (.setColor ^SpriteBatch batch ^Color (let [^Color c (nth colors idx)] (set! (.a ^Color c) (float 1.0)) ^Color c)) ;(.setColor ^SpriteBatch batch ^Color (nth colors idx))
+          (.setColor ^SpriteBatch batch ^Color (nth colors idx))
           (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite nucky (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height 64 (* 32.0 y)))
           (.setColor ^SpriteBatch batch 1.0 1.0 1.0 1.0)
           (.draw ^SpriteBatch batch ^Sprite health-red (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32.0 y)) 20.0 20.0)
-          (.setColor ^SpriteBatch batch 0.1 1.0 0.4 1.0)
+          (.setColor ^SpriteBatch batch 0.0 0.9 0.5 1.0)
           (.draw ^SpriteBatch batch ^Sprite (nth health (quot 20 (/ 300 (:hp @player)))) (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32.0 y)))
           ;region.setV(originalRegion.getV() + health * (originalRegion.getV2() - originalRegion.getV()));
           ;(.setV ^Sprite health (float (- 1.0 hp))) ; (float (- 1.0 hp)) ; (Sprite healthMeter).setV(1.0 - (1.0 / (99 / currentHP)));  (SpriteBatch batch).draw(healthMeter, healthX, healthY, 20.0, 20.0 * (currentHP / 99);
@@ -344,27 +356,49 @@
   (update-fov dd)
           ;(refresher)
   )
-  (defn center-camera []
+  (defn shift-cursor
+   [dir]
+   (condp = dir
+      :UP    (when (>= @cursor wide)                  (reset! cursor (- @cursor wide)))
+		  :DOWN  (when (< @cursor (- (* wide high) wide)) (reset! cursor (+ @cursor wide)))
+      :LEFT  (when (> (mod @cursor wide) 0)           (reset! cursor (- @cursor 1)))
+      :RIGHT (when (< (mod @cursor wide) (dec wide))  (reset! cursor (+ @cursor 1)))
+     ))
+  (defn center-camera
+    ([]
         (.set ^Vector3 (.position ^OrthographicCamera camera) (+ (* 32.0 (mod (:pos @player) wide)) (* 16.0 (- wide (quot (:pos @player) wide)))) (- @screen-height 64.0 (* 32.0 (quot (:pos @player) wide))) 0.0))
+    ([position]
+        (.set ^Vector3 (.position ^OrthographicCamera camera) (+ (* 32.0 (mod @cursor wide)) (* 16.0 (- wide (quot @cursor wide)))) (- @screen-height 64.0 (* 32.0 (quot @cursor wide))) 0.0))
+    )
   (.setInputProcessor Gdx/input (reify InputProcessor
 
-   (keyDown [this keycode] (do (condp = keycode
+   (keyDown [this keycode] (do (if (= @mode :act)
+                                 (condp = keycode
       Input$Keys/UP    (do (shift-player player monsters dun (- (:pos @player) wide)) (center-camera))
 		  Input$Keys/DOWN  (do (shift-player player monsters dun (+ (:pos @player) wide)) (center-camera))
       Input$Keys/LEFT  (do (shift-player player monsters dun (- (:pos @player) 1)) (center-camera))
       Input$Keys/RIGHT (do (shift-player player monsters dun (+ (:pos @player) 1)) (center-camera))
-      Input$Keys/NUM_0 (do (damage-player player dun  1) (refresher) (update-fov dun) (center-camera))
-      Input$Keys/NUM_1 (do (damage-player player dun 11) (refresher) (update-fov dun) (center-camera))
-      Input$Keys/NUM_2 (do (damage-player player dun 22) (refresher) (update-fov dun) (center-camera))
-      Input$Keys/NUM_3 (do (damage-player player dun 33) (refresher) (update-fov dun) (center-camera))
-      Input$Keys/NUM_4 (do (damage-player player dun 44) (refresher) (update-fov dun) (center-camera))
-      Input$Keys/NUM_5 (do (damage-player player dun 55) (refresher) (update-fov dun) (center-camera))
-      Input$Keys/NUM_6 (do (damage-player player dun 66) (refresher) (update-fov dun) (center-camera))
-      Input$Keys/NUM_7 (do (damage-player player dun 77) (refresher) (update-fov dun) (center-camera))
-      Input$Keys/NUM_8 (do (damage-player player dun 88) (refresher) (update-fov dun) (center-camera))
-      Input$Keys/NUM_9 (do (damage-player player dun 99) (refresher) (update-fov dun) (center-camera))
+;      Input$Keys/NUM_0 (do (damage-player player dun  1) (refresher) (update-fov dun) (center-camera))
+;      Input$Keys/NUM_1 (do (damage-player player dun 11) (refresher) (update-fov dun) (center-camera))
+;      Input$Keys/NUM_2 (do (damage-player player dun 22) (refresher) (update-fov dun) (center-camera))
+;      Input$Keys/NUM_3 (do (damage-player player dun 33) (refresher) (update-fov dun) (center-camera))
+;      Input$Keys/NUM_4 (do (damage-player player dun 44) (refresher) (update-fov dun) (center-camera))
+;      Input$Keys/NUM_5 (do (damage-player player dun 55) (refresher) (update-fov dun) (center-camera))
+;      Input$Keys/NUM_6 (do (damage-player player dun 66) (refresher) (update-fov dun) (center-camera))
+;      Input$Keys/NUM_7 (do (damage-player player dun 77) (refresher) (update-fov dun) (center-camera))
+;      Input$Keys/NUM_8 (do (damage-player player dun 88) (refresher) (update-fov dun) (center-camera))
+;      Input$Keys/NUM_9 (do (damage-player player dun 99) (refresher) (update-fov dun) (center-camera))
+      Input$Keys/L     (do (reset! cursor (:pos @player)) (reset! mode :look))
       Input$Keys/Q     (do (-dispose this)  (System/exit 0))
                                  true)
+                               (condp = keycode
+      Input$Keys/UP    (do (shift-cursor :UP)    (center-camera 1))
+		  Input$Keys/DOWN  (do (shift-cursor :DOWN)  (center-camera 1))
+      Input$Keys/LEFT  (do (shift-cursor :LEFT)  (center-camera 1))
+      Input$Keys/RIGHT (do (shift-cursor :RIGHT) (center-camera 1))
+      Input$Keys/L     (do (center-camera) (reset! mode :act))
+      Input$Keys/Q     (do (-dispose this)  (System/exit 0))
+                                 true))
             true))
    (keyUp [this keycode] false)
    (keyTyped [this keycode] false)
@@ -406,6 +440,7 @@
 ;  (doto stage
  ;       (.act delta)
   ;      (.draw))
+
 
 
 
