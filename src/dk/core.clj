@@ -2,16 +2,16 @@
   (:use dk.herringbone)
 	(:require [hiphip.double :as hiphip]
             [hiphip.array :as harray])
-  (:import [squidpony.squidcolor SColor SColorFactory]
-           [squidpony.squidgrid.fov TranslucenceWrapperFOV EliasLOS BasicRadiusStrategy]
+  (:import ;[squidpony.squidcolor SColor SColorFactory]
+           [squid.squidgrid.fov TranslucenceWrapperFOV EliasLOS BasicRadiusStrategy]
            [java.awt Font Component Point]
            [java.io File])
   (:gen-class))
 
 ;; (binding [*print-dup* true] (pr-str (first (prepare-bones))))
 (set! *warn-on-reflection* true)
-(def wide 43)
-(def high 43)
+(def wide 33)
+(def high 33)
 (def ^Long iw (- wide 2)) ;inner width
 (def ^Long ih (- high 2)) ;inner height
 
@@ -29,8 +29,8 @@
                      (aset res1d i false))
                      res1d))
 
-(def player (atom {:pos 0 :show \@ :hp 300 :vision 8 :dijkstra nil :fov nil :full-seen (init-full-seen)}))
-(def monsters (atom (vec (for [i (range 1 25)] (atom {:pos 0 :show \M :hp 8 :vision 7 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
+(def player (atom {:pos 0 :show \@ :hp 100 :vision 8 :dijkstra nil :fov nil :full-seen (init-full-seen)}))
+(def monsters (atom (vec (for [i (range 1 20)] (atom {:pos 0 :show \M :hp 8 :vision 7 :dijkstra nil :ident 1}))))) ;(first (clojure.string/lower-case (Integer/toString i 16)))
 (def ^TranslucenceWrapperFOV fov (TranslucenceWrapperFOV. ))
 (def ^EliasLOS los (EliasLOS. ))
 
@@ -227,17 +227,39 @@
   ([a ent center radius]
      (local-dijkstra a (dissoc (merge (find-walls a) (find-monsters @monsters)) (:pos @ent)) {center 0} center radius))
   ([a closed open-cells center radius]
-     (loop [open open-cells result (atom {}) ctr 0]
-
+     (loop [open open-cells ctr 0]
        (if (and (seq open) (< ctr radius))
          (recur (reduce (fn [newly-open [i v]]
                           (reduce (fn [acc dir]
                                     (if (or (closed dir) (open dir)
-                                            (>= (inc v) (get @result dir 22222.0))
-                                            )
+                                            (>= (inc v) (hiphip/aget a dir)))
                                       acc
-                                      (do (swap! result assoc dir (inc v))
-                                         ; (print (count @result) " ")
+                                      (do
+                                          (hiphip/aset a dir (inc v))
+                                          (assoc acc dir (inc v)))))
+                                  newly-open, [(- i wide)
+                                               (+ i wide)
+                                               (- i 1)
+                                               (+ i 1)]))
+                        {}, open) (inc ctr))
+         a))
+     ))
+
+(defn local-dijkstra-map
+  ([a center radius]
+     (local-dijkstra-map a (find-walls a) {center 0} center radius))
+  ([a ent center radius]
+     (local-dijkstra-map a (dissoc (merge (find-walls a) (find-monsters @monsters)) (:pos @ent)) {center 0} center radius))
+  ([a closed open-cells center radius]
+     (loop [open open-cells result (atom {}) ctr 0]
+       (if (and (seq open) (< ctr radius))
+         (recur (reduce (fn [newly-open [i v]]
+                          (reduce (fn [acc dir]
+                                    (if (or (closed dir) (open dir)
+                                            (>= (inc v) (get @result dir 22222.0)))
+                                      acc
+                                      (do
+                                          (swap! result assoc dir (inc v))
                                           (assoc acc dir (inc v)))))
                                   newly-open, [(- i wide)
                                                (+ i wide)
@@ -264,7 +286,7 @@
 (defn init-monsters
   [dungeon mons]
 ;    (let [chokepoints (amap ^doubles dungeon idx _ (double (if (>= (aget ^doubles dungeon idx) wall) wall (reduce (fn [base [k v]] (+ base v)) 0 (local-dijkstra ^doubles dungeon idx 2)))))]
-  (let [chokepoints (amap ^doubles dungeon idx _ (double (if (>= (aget ^doubles dungeon idx) wall) 0 (reduce (fn [base [k v]] (if (>= v 5) (+ base (if (check-los idx k 1.0) 0 1)) base)) 0 (local-dijkstra ^doubles dungeon idx 7)))))]
+  (let [chokepoints (amap ^doubles dungeon idx _ (double (if (>= (aget ^doubles dungeon idx) wall) 0 (reduce (fn [base [k v]] (if (>= v 5) (+ base (if (check-los idx k 1.0) 0 1)) base)) 0 (local-dijkstra-map ^doubles dungeon idx 7)))))]
     (mapv #(do (init-ambush-entity dungeon % chokepoints) %) @monsters)))
 
 (defn prepare-bones []
@@ -555,6 +577,7 @@
   ;(show-dungeon) ;
   )
 )
+
 
 
 

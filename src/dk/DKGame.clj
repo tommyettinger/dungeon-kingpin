@@ -8,7 +8,7 @@
            [com.badlogic.gdx.scenes.scene2d.ui Label Label$LabelStyle Image]
            [com.badlogic.gdx.graphics Color GL10 OrthographicCamera Texture]
            [com.badlogic.gdx.graphics.g2d BitmapFont TextureAtlas TextureAtlas$AtlasSprite TextureAtlas$AtlasRegion SpriteBatch Sprite]
-           [squidpony.squidcolor SColor SColorFactory]
+           ;[squidpony.squidcolor SColor SColorFactory]
            [java.io FileWriter])
   ;(:require (dk [dkscreen :as dkscreen]))
   )
@@ -34,6 +34,12 @@
 (declare Tu) (declare Td) (declare Tl) (declare Tr) ; T-shaped up/down/left/right
 
 (declare dun)
+
+(def repeating (atom nil))
+(def clock (atom 500))
+(def presses (atom (list)))
+(def short-clock (atom 50))
+
 (defn -dispose [^Game this]
   (if (> (:hp @player) 0)
       (binding [*print-dup* true] (spit "Savefile.edn" (pr-str [wide high (:dungeon @dun) (:shown @dun) @cleared-levels @dlevel @player (mapv deref @monsters)])))
@@ -202,13 +208,13 @@
          ))
    (defn update-fov [dun]
          (swap! player assoc :fov (run-fov-player player dun))
-         (doall (map-indexed #(let [x (mod %1 wide) y (quot %1 wide)] (Color/rgb888ToColor %2 (.getRGB ^SColor (if (> (aget (:fov @player) x y) 0)
-                                                                           (SColorFactory/blend SColor/BLACK SColor/CREAM (aget (:fov @player) x y))
+         (doall (map-indexed #(let [x (mod %1 wide) y (quot %1 wide)] (.set ^Color %2 ^Color (if (> (aget (:fov @player) x y) 0)
+                                                                           (.lerp (Color. 255) (Color. (float 1.0)(float (/ 256.0 253.0))(float (/ 256.0 14.0))(float 1.0)) (aget (:fov @player) x y))
                                                                            (if
                                                                              (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))
-                                                                               SColor/GRAY
-                                                                               SColor/BLACK
-                                                                             ))))) colors))
+                                                                               Color/DARK_GRAY
+                                                                               Color/BLACK
+                                                                             )))) colors))
      colors)
    (update-fov dun)
    (def ^OrthographicCamera camera (OrthographicCamera.))
@@ -232,7 +238,22 @@
   (doseq [y (range high)]
   (doseq [x (range wide)]
     (let [is-seen (aget seen x y) idx (+ (* y wide) x) c (aget ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned idx)] ; x (mod idx wide) y (quot idx wide)
-     (when
+             (if looking?
+               (when
+        (and (< (Math/abs (- (+ (* 32.0 (mod @cursor wide)) (* 16.0 (- wide (quot @cursor wide))))
+                             (+ (* 32.0 x) (* 16 (- wide y))))) (+ 48 (/ @screen-width 2)))
+             (< (Math/abs (- (- @screen-height 64.0 (* 32.0 (quot @cursor wide)))
+                             (- @screen-height 64 (* 32 y)))) (+ 64 (/ @screen-height 2)))
+             )
+      ;  (<= (+ (Math/abs ^int (- (mod (:pos @player) wide) x)) (Math/abs ^int (- (quot (:pos @player) wide) y))) 13)
+        (.setColor ^SpriteBatch batch ^Color Color/WHITE)
+        (if (or (> is-seen 0) (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))) (when (not= (nth (:dungeon @dun) idx) wall)
+                                                                              (.draw ^SpriteBatch batch (if (or (= c ice) (= c water)) ^TextureAtlas$AtlasSprite c ^TextureAtlas$AtlasSprite gr)
+                                                                                  (+ (* 32.0 x) (* 16 (- wide y)))
+                                                                                  (- @screen-height 64.0 (* 32 y)))
+                                                                                        ))
+      )
+               (when
         (and (< (Math/abs (- (+ (* 32.0 (mod (:pos @player) wide)) (* 16.0 (- wide (quot (:pos @player) wide))))
                              (+ (* 32.0 x) (* 16 (- wide y))))) (+ 48 (/ @screen-width 2)))
              (< (Math/abs (- (- @screen-height 64.0 (* 32.0 (quot (:pos @player) wide)))
@@ -245,22 +266,19 @@
                                                                                   (+ (* 32.0 x) (* 16 (- wide y)))
                                                                                   (- @screen-height 64.0 (* 32 y)))
                                                                                         ))
-      )
+      ))
       )
     )
   (doseq [x (range wide)]
     (let [is-seen (aget seen x y) idx (+ (* y wide) x) c (aget ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned idx)] ; x (mod idx wide) y (quot idx wide)
-      (when
-        (and (< (Math/abs (- (+ (* 32.0 (mod (:pos @player) wide)) (* 16.0 (- wide (quot (:pos @player) wide))))
-                             (+ (* 32.0 x) (* 16 (- wide y))))) (+ 24 (/ @screen-width 2)))
-             (< (Math/abs (- (- @screen-height 64.0 (* 32.0 (quot (:pos @player) wide)))
-                             (- @screen-height 64.0 (* 32 y)))) (+ 64 (/ @screen-height 2)))
-             )
-      ;  (<= (+ (Math/abs ^int (- (mod (:pos @player) wide) x)) (Math/abs ^int (- (quot (:pos @player) wide) y))) 13)
-        (.setColor ^SpriteBatch batch ^Color (nth colors idx))
         ; ^TextureAtlas$AtlasSprite %2
 
         (if looking?
+          (when
+            (and (< (Math/abs (- (+ (* 32.0 (mod @cursor wide)) (* 16.0 (- wide (quot @cursor wide))))
+                             (+ (* 32.0 x) (* 16 (- wide y))))) (+ 48 (/ @screen-width 2)))
+             (< (Math/abs (- (- @screen-height 64.0 (* 32.0 (quot @cursor wide)))
+                             (- @screen-height 64 (* 32 y)))) (+ 64 (/ @screen-height 2))))
         (if (or (> is-seen 0) (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))) (when (or (= c stones) (= c leaf))
                                                                             (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite (aget ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned idx)
                                                                                 (+ (* 32.0 x) (* 16 (- wide y)))
@@ -268,12 +286,19 @@
                                                                       (when (or (>= (nth (:dungeon @dun) idx) wall) (= c statue))
                                                                             (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite da
                                                                                 (+ (* 32.0 x) (* 16 (- wide y)))
-                                                                                (- @screen-height 64.0 (* 32 y)))))
-        (if (or (> is-seen 0) (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))) (do (when (or (>= (nth (:dungeon @dun) idx) wall) (= c statue) (= c stones) (= c leaf))
+                                                                                (- @screen-height 64.0 (* 32 y))))))
+        (when
+        (and (< (Math/abs (- (+ (* 32.0 (mod (:pos @player) wide)) (* 16.0 (- wide (quot (:pos @player) wide))))
+                             (+ (* 32.0 x) (* 16 (- wide y))))) (+ 24 (/ @screen-width 2)))
+             (< (Math/abs (- (- @screen-height 64.0 (* 32.0 (quot (:pos @player) wide)))
+                             (- @screen-height 64.0 (* 32 y)))) (+ 64 (/ @screen-height 2)))
+             )
+        (.setColor ^SpriteBatch batch ^Color (nth colors idx))
+          (if (or (> is-seen 0) (aget ^"[Z" (:full-seen @player) (+ x (* wide y)))) (do (when (or (>= (nth (:dungeon @dun) idx) wall) (= c statue) (= c stones) (= c leaf))
 
                                                                             (.draw ^SpriteBatch batch ^TextureAtlas$AtlasSprite (aget ^"[Lcom.badlogic.gdx.graphics.g2d.TextureAtlas$AtlasSprite;" cleaned idx)
                                                                                 (+ (* 32.0 x) (* 16 (- wide y)))
-                                                                                (- @screen-height 64.0 (* 32 y)))))))
+                                                                                (- @screen-height 64.0 (* 32 y))))))))
         ;█ ∫
         (when (and (> is-seen 0) (contains? @monster-hash idx))
           (.setColor ^SpriteBatch batch ^Color (nth colors idx))
@@ -290,7 +315,7 @@
           (.setColor ^SpriteBatch batch 1.0 1.0 1.0 1.0)
           (.draw ^SpriteBatch batch ^Sprite health-red (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32.0 y)) 20.0 20.0)
           (.setColor ^SpriteBatch batch 0.0 0.9 0.5 1.0)
-          (.draw ^SpriteBatch batch ^Sprite (nth health (quot 20 (/ 300 (:hp @player)))) (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32.0 y)))
+          (.draw ^SpriteBatch batch ^Sprite (nth health (+ 4 (quot 16 (/ 100 (:hp @player))))) (+ (* 32.0 x) (* 16 (- wide y))) (- @screen-height (* 32.0 y)))
           ;region.setV(originalRegion.getV() + health * (originalRegion.getV2() - originalRegion.getV()));
           ;(.setV ^Sprite health (float (- 1.0 hp))) ; (float (- 1.0 hp)) ; (Sprite healthMeter).setV(1.0 - (1.0 / (99 / currentHP)));  (SpriteBatch batch).draw(healthMeter, healthX, healthY, 20.0, 20.0 * (currentHP / 99);
           ; (SpriteBatch batch).draw(healthMeter, healthX, healthY, 20.0, 20.0 * (currentHP / 99)
@@ -301,8 +326,8 @@
     )
     )
   (.end ^SpriteBatch batch)
+  )
   ;(.requestRendering Gdx/graphics)
-))
 
 (defn shift-player [pc mons dd newpos]
   (if
@@ -363,21 +388,36 @@
 		  :DOWN  (when (< @cursor (- (* wide high) wide)) (reset! cursor (+ @cursor wide)))
       :LEFT  (when (> (mod @cursor wide) 0)           (reset! cursor (- @cursor 1)))
       :RIGHT (when (< (mod @cursor wide) (dec wide))  (reset! cursor (+ @cursor 1)))
-     ))
+     )
+    (refresher))
   (defn center-camera
     ([]
-        (.set ^Vector3 (.position ^OrthographicCamera camera) (+ (* 32.0 (mod (:pos @player) wide)) (* 16.0 (- wide (quot (:pos @player) wide)))) (- @screen-height 64.0 (* 32.0 (quot (:pos @player) wide))) 0.0))
+        (.set ^Vector3 (.position ^OrthographicCamera camera) (+ (* 32.0 (mod (:pos @player) wide)) (* 16.0 (- wide (quot (:pos @player) wide)))) (- @screen-height 64.0 (* 32.0 (quot (:pos @player) wide))) 0.0)
+     (refresher))
     ([position]
-        (.set ^Vector3 (.position ^OrthographicCamera camera) (+ (* 32.0 (mod @cursor wide)) (* 16.0 (- wide (quot @cursor wide)))) (- @screen-height 64.0 (* 32.0 (quot @cursor wide))) 0.0))
+        (.set ^Vector3 (.position ^OrthographicCamera camera) (+ (* 32.0 (mod @cursor wide)) (* 16.0 (- wide (quot @cursor wide)))) (- @screen-height 64.0 (* 32.0 (quot @cursor wide))) 0.0)
+     (refresher))
     )
-  (.setInputProcessor Gdx/input (reify InputProcessor
-
-   (keyDown [this keycode] (do (if (= @mode :act)
+  (defn process-key [keycode]
+                             (reset! short-clock 50)
+                             (if (= @mode :act)
                                  (condp = keycode
-      Input$Keys/UP    (do (shift-player player monsters dun (- (:pos @player) wide)) (center-camera))
-		  Input$Keys/DOWN  (do (shift-player player monsters dun (+ (:pos @player) wide)) (center-camera))
-      Input$Keys/LEFT  (do (shift-player player monsters dun (- (:pos @player) 1)) (center-camera))
-      Input$Keys/RIGHT (do (shift-player player monsters dun (+ (:pos @player) 1)) (center-camera))
+      Input$Keys/UP    (do (shift-player player monsters dun (- (:pos @player) wide)) (center-camera) (reset! repeating Input$Keys/UP))
+		  Input$Keys/DOWN  (do (shift-player player monsters dun (+ (:pos @player) wide)) (center-camera) (reset! repeating Input$Keys/DOWN))
+      Input$Keys/LEFT  (do (shift-player player monsters dun (- (:pos @player) 1)) (center-camera) (reset! repeating Input$Keys/LEFT))
+      Input$Keys/RIGHT (do (shift-player player monsters dun (+ (:pos @player) 1)) (center-camera) (reset! repeating Input$Keys/RIGHT))
+      Input$Keys/L     (do (reset! cursor (:pos @player)) (reset! mode :look))
+      Input$Keys/Q     (do (-dispose this)  (System/exit 0))
+                                 true)
+                               (condp = keycode
+      Input$Keys/UP    (do (shift-cursor :UP)    (center-camera 1) (reset! repeating Input$Keys/UP))
+		  Input$Keys/DOWN  (do (shift-cursor :DOWN)  (center-camera 1) (reset! repeating Input$Keys/DOWN))
+      Input$Keys/LEFT  (do (shift-cursor :LEFT)  (center-camera 1) (reset! repeating Input$Keys/LEFT))
+      Input$Keys/RIGHT (do (shift-cursor :RIGHT) (center-camera 1) (reset! repeating Input$Keys/RIGHT))
+      Input$Keys/L     (do (center-camera) (reset! mode :act))
+      Input$Keys/Q     (do (-dispose this)  (System/exit 0))
+                                 true))
+            (swap! presses rest))
 ;      Input$Keys/NUM_0 (do (damage-player player dun  1) (refresher) (update-fov dun) (center-camera))
 ;      Input$Keys/NUM_1 (do (damage-player player dun 11) (refresher) (update-fov dun) (center-camera))
 ;      Input$Keys/NUM_2 (do (damage-player player dun 22) (refresher) (update-fov dun) (center-camera))
@@ -388,19 +428,11 @@
 ;      Input$Keys/NUM_7 (do (damage-player player dun 77) (refresher) (update-fov dun) (center-camera))
 ;      Input$Keys/NUM_8 (do (damage-player player dun 88) (refresher) (update-fov dun) (center-camera))
 ;      Input$Keys/NUM_9 (do (damage-player player dun 99) (refresher) (update-fov dun) (center-camera))
-      Input$Keys/L     (do (reset! cursor (:pos @player)) (reset! mode :look))
-      Input$Keys/Q     (do (-dispose this)  (System/exit 0))
-                                 true)
-                               (condp = keycode
-      Input$Keys/UP    (do (shift-cursor :UP)    (center-camera 1))
-		  Input$Keys/DOWN  (do (shift-cursor :DOWN)  (center-camera 1))
-      Input$Keys/LEFT  (do (shift-cursor :LEFT)  (center-camera 1))
-      Input$Keys/RIGHT (do (shift-cursor :RIGHT) (center-camera 1))
-      Input$Keys/L     (do (center-camera) (reset! mode :act))
-      Input$Keys/Q     (do (-dispose this)  (System/exit 0))
-                                 true))
-            true))
-   (keyUp [this keycode] false)
+  (.setInputProcessor Gdx/input (reify InputProcessor
+
+   (keyDown [this keycode]
+            (do (swap! presses concat [keycode]) true))
+   (keyUp [this keycode] (do (reset! repeating nil) (reset! clock 500) true))
    (keyTyped [this keycode] false)
 
    (touchDown [this x, y, pointer, button] false)
@@ -422,8 +454,35 @@
 ))
 
 
-(defn -render [^Float delta]
-;  (handle-input ^OrthographicCamera camera dun)
+(defn -render [^Game this]
+  (let [
+        delta (int (* 1000 (.getDeltaTime Gdx/graphics)))
+        diff (- @clock delta)
+        mini-diff (- @short-clock delta)]
+  (when @repeating
+    (reset! clock (if (> diff 0)
+                    diff
+                    (do
+                        (if (= @mode :act)
+                            (condp = @repeating
+      Input$Keys/UP    (do (shift-player player monsters dun (- (:pos @player) wide)) (center-camera))
+		  Input$Keys/DOWN  (do (shift-player player monsters dun (+ (:pos @player) wide)) (center-camera))
+      Input$Keys/LEFT  (do (shift-player player monsters dun (- (:pos @player) 1)) (center-camera))
+      Input$Keys/RIGHT (do (shift-player player monsters dun (+ (:pos @player) 1)) (center-camera))
+                            true)
+                            (condp = @repeating
+      Input$Keys/UP    (do (shift-cursor :UP)    (center-camera 1))
+		  Input$Keys/DOWN  (do (shift-cursor :DOWN)  (center-camera 1))
+      Input$Keys/LEFT  (do (shift-cursor :LEFT)  (center-camera 1))
+      Input$Keys/RIGHT (do (shift-cursor :RIGHT) (center-camera 1))
+                          true))
+                      500))))
+  (reset! short-clock (if (> mini-diff 0)
+                    mini-diff
+                    (do
+                      (when (seq @presses)
+                      (process-key (first @presses)))
+                      50))))
   (refresher)
         ;(refresher)
   )
@@ -440,6 +499,7 @@
 ;  (doto stage
  ;       (.act delta)
   ;      (.draw))
+
 
 
 

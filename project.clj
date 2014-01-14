@@ -7,20 +7,21 @@
   :repositories [["libgdx" "https://oss.sonatype.org/content/repositories/snapshots/"]]
   :dependencies [
                  [org.clojure/clojure "1.5.1"]
-                 [com.badlogicgames.gdx/gdx "0.9.9-SNAPSHOT"]
-                 [com.badlogicgames.gdx/gdx-backend-lwjgl "0.9.9-SNAPSHOT"]
-		             [com.badlogicgames.gdx/gdx-platform "0.9.9-SNAPSHOT" :classifier "natives-desktop"]
-
-                 [hiphip-aot "0.1.1"]
+                 [com.badlogicgames.gdx/gdx "1.0-SNAPSHOT"]
+                 [com.badlogicgames.gdx/gdx-backend-lwjgl "1.0-SNAPSHOT"]
+		             [com.badlogicgames.gdx/gdx-platform "1.0-SNAPSHOT" :classifier "natives-desktop"]
+                 [hiphip-aot "0.1.2"]
                ;  [seesaw "1.4.1"]
-                 [com.squidpony/squidlib "1.95"]
+                 [com.squid/cuttlebone "1.95.1"]
                  ]
-  :jvm-opts ^:replace []
-  :javac-options ["-target" "1.6" "-source" "1.6"]
+  :jvm-opts ^:replace ["-Xshare:off" "-server"]
+  :uberjar-name "dungeon.jar"
 ;  :aot [dk.herringbone dk.weapons dk.combat dk.core]
   :aot [dk.herringbone dk.core dk.DKGame dk.dkscreen dk.spritecore]
   :main dk.spritecore
  )
+
+
 
 
 
